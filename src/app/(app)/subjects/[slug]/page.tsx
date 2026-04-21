@@ -1,9 +1,11 @@
 import Link from 'next/link';
 
 import { getSubject } from '@/server/domain/subjects/subjects.command';
+import { listTopicsForSubject } from '@/server/domain/topics/topics.command';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
+import { TopicsSection } from '@/ui/views/subjects/topics-section.view';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -13,6 +15,20 @@ export default async function SubjectDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const userId = await getCurrentUserId();
   const subject = await getSubject(userId, slug);
+  const topics = await listTopicsForSubject(subject.id);
+
+  const initialTopics = topics.map((t) => ({
+    id: t.id,
+    slug: t.slug,
+    title: t.title,
+    pitch: t.pitch,
+    rationale: t.rationale,
+    category: t.category,
+    status: t.status,
+    sort_order: t.sort_order,
+    discover_hint: t.discover_hint,
+    created_at: t.created_at,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,6 +41,8 @@ export default async function SubjectDetailPage({ params }: PageProps) {
           <Link href="/subjects">All subjects</Link>
         </Button>
       </header>
+
+      <TopicsSection subjectId={subject.id} subjectSlug={subject.slug} initialTopics={initialTopics} />
 
       {subject.research_brief_md ? (
         <section className="flex flex-col gap-2">
@@ -52,10 +70,6 @@ export default async function SubjectDetailPage({ params }: PageProps) {
           </div>
         </section>
       ) : null}
-
-      <p className="text-xs text-muted-foreground">
-        Landscape and deep research coming in the next milestones.
-      </p>
     </div>
   );
 }

@@ -14,6 +14,10 @@ export function anthropicModel() {
   return getProvider()(serverConfig.llm.model);
 }
 
+export function anthropicWebSearchTool(options?: { maxUses?: number }) {
+  return getProvider().tools.webSearch_20250305({ maxUses: options?.maxUses ?? 5 });
+}
+
 export const anthropicProviderOptions = {
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;

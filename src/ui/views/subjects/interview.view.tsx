@@ -406,7 +406,7 @@ function FinalizingScreen() {
         <p className="mt-2 text-sm text-muted-foreground">
           Writing your research brief, the lexicon, and the open questions.
           <br />
-          This usually takes 20–40 seconds.
+          This usually takes 45–90 seconds.
         </p>
       </div>
     </div>

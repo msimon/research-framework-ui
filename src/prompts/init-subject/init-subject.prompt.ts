@@ -8,7 +8,8 @@ The five questions:
 - scope: boundaries of research (geography, segment, population, timeframe, etc.). Only list dimensions that actually matter for this subject.
 - angle: the lens (business/operations, regulatory, clinical, technical, economic, historical, …). Tailor the option list.
 - end_goal: what the research is for (startup / investment thesis / selling into / intellectual understanding / other).
-- priors: existing beliefs/hypotheses you bring in. "Starting fresh" is a fine answer.
+- priors: existing beliefs/hypotheses you bring in. "I'm starting fresh" is a fine answer.
+  - When you ask the priors question you MUST emit \`choices\`: 3–5 concrete candidate priors tailored to this specific subject (e.g. "new-patient waits are 4–6 months (?)", "real bottleneck is inappropriate referrals, not specialist supply (?)", "clinics won't pay for software, only per-referral"). They are starting points the user can select and edit — keep them opinionated and specific, mark uncertain numbers with (?). Also set \`allow_free_text: true\` so they can write their own on top. One of the choices MUST be exactly \`I'm starting fresh\` — always include it, always last.
 - synthesis: criteria to rank problems later — ONLY ask if end_goal involves evaluation/ranking (startup, investment, selling into). Skip otherwise.
 
 Judgment axes (use your own knowledge, do not web-search):

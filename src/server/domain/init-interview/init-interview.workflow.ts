@@ -70,7 +70,7 @@ export async function runInitInterviewStep(input: StepInterviewInput): Promise<S
       providerOptions: { anthropic: anthropicProviderOptions },
     });
 
-    const step = object.step;
+    const step = enforcePriorsChoices(object.step);
     const nextTurnNumber = turns.length + 1;
     const turn = await createInterviewTurn({
       subjectId: subject.id,
@@ -139,9 +139,26 @@ function buildInterviewMessages(input: {
           .join('\n\n');
 
   return [
-    { role: 'system' as const, content: INIT_SUBJECT_SYSTEM_PROMPT },
+    {
+      role: 'system' as const,
+      content: INIT_SUBJECT_SYSTEM_PROMPT,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+    },
     { role: 'user' as const, content: `${header}\n\n---\nInterview history:\n${historyLines}` },
   ];
+}
+
+const STARTING_FRESH_CHOICE = "I'm starting fresh";
+
+function enforcePriorsChoices(step: AgentStep): AgentStep {
+  if (step.type !== 'question' || step.question_id !== 'priors') return step;
+  const existing = step.choices ?? [];
+  const withoutFresh = existing.filter((c) => c.trim().toLowerCase() !== STARTING_FRESH_CHOICE.toLowerCase());
+  return {
+    ...step,
+    choices: [...withoutFresh, STARTING_FRESH_CHOICE],
+    allow_free_text: true,
+  };
 }
 
 function toHistory(turns: TurnRow[]): InterviewHistoryEntry[] {

@@ -117,6 +117,69 @@ export type Database = {
         }
         Relationships: []
       }
+      topics: {
+        Row: {
+          category: string
+          created_at: string
+          discover_hint: string | null
+          id: string
+          parent_topic_id: string | null
+          pitch: string
+          rationale: string
+          slug: string
+          sort_order: number
+          status: string
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          discover_hint?: string | null
+          id?: string
+          parent_topic_id?: string | null
+          pitch: string
+          rationale?: string
+          slug: string
+          sort_order?: number
+          status?: string
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          discover_hint?: string | null
+          id?: string
+          parent_topic_id?: string | null
+          pitch?: string
+          rationale?: string
+          slug?: string
+          sort_order?: number
+          status?: string
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           active: boolean
