@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { runDiscoverAction } from '@/app/_actions/discover.action';
 import { supabaseClient } from '@/shared/lib/supabase/client';
@@ -37,6 +38,24 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
+function statusRank(status: string): number {
+  if (status === 'deep') return 0;
+  if (status === 'landscape') return 1;
+  return 2;
+}
+
+function rowBgForStatus(status: string, hasHint: boolean): string {
+  if (status === 'deep') return 'bg-accent/40';
+  if (status === 'landscape') return 'bg-accent/15';
+  return hasHint ? 'bg-primary/5' : '';
+}
+
+function statusLabel(status: string): string | null {
+  if (status === 'deep') return 'deep research ✓';
+  if (status === 'landscape') return 'landscape ✓';
+  return null;
+}
+
 export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) {
   const [topics, setTopics] = useState<Topic[]>(initialTopics);
   const [thinking, setThinking] = useState(false);
@@ -68,10 +87,23 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
           if (!row) return;
           setTopics((prev) => {
             if (prev.some((t) => t.id === row.id)) return prev;
-            const next = [...prev, row];
-            next.sort((a, b) => a.sort_order - b.sort_order);
-            return next;
+            return [...prev, row];
           });
+        },
+      )
+      .on(
+        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
+        'postgres_changes' as any,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'topics',
+          filter: `subject_id=eq.${subjectId}`,
+        },
+        (payload: { new: Topic | null }) => {
+          const row = payload.new;
+          if (!row) return;
+          setTopics((prev) => prev.map((t) => (t.id === row.id ? row : t)));
         },
       )
       .subscribe();
@@ -93,7 +125,16 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
     });
   }
 
-  const hasTopics = topics.length > 0;
+  const sortedTopics = useMemo(
+    () =>
+      [...topics].sort((a, b) => {
+        const rankDiff = statusRank(a.status) - statusRank(b.status);
+        if (rankDiff !== 0) return rankDiff;
+        return a.sort_order - b.sort_order;
+      }),
+    [topics],
+  );
+  const hasTopics = sortedTopics.length > 0;
   const isWorking = thinking || pending;
 
   return (
@@ -120,12 +161,20 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
 
       {hasTopics ? (
         <ul className="flex flex-col divide-y divide-border/40 rounded-md border bg-muted/20">
-          {topics.map((topic) => (
+          {sortedTopics.map((topic) => (
             <li
               key={topic.id}
-              className={topic.discover_hint ? 'border-l-2 border-l-primary/50 bg-primary/5 p-3' : 'p-3'}
+              className={[
+                topic.discover_hint ? 'border-l-2 border-l-primary/50' : '',
+                rowBgForStatus(topic.status, Boolean(topic.discover_hint)),
+              ].join(' ')}
             >
-              <TopicRow topic={topic} subjectSlug={subjectSlug} />
+              <Link
+                href={`/subjects/${subjectSlug}/topics/${topic.slug}`}
+                className="block p-3 transition-colors hover:bg-muted/40"
+              >
+                <TopicRow topic={topic} subjectSlug={subjectSlug} />
+              </Link>
             </li>
           ))}
           <li className="p-3">
@@ -142,10 +191,18 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
 }
 
 function TopicRow({ topic }: { topic: Topic; subjectSlug: string }) {
+  const stateLabel = statusLabel(topic.status);
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium">{topic.title}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{topic.title}</span>
+          {stateLabel ? (
+            <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+              {stateLabel}
+            </span>
+          ) : null}
+        </div>
         <div className="flex items-center gap-1.5">
           {topic.discover_hint ? (
             <span

@@ -72,6 +72,98 @@ export type Database = {
           },
         ]
       }
+      landscapes: {
+        Row: {
+          content_md: string
+          created_at: string
+          error_message: string | null
+          id: string
+          status: string
+          topic_id: string
+          updated_at: string
+          workflow_instance_id: string | null
+        }
+        Insert: {
+          content_md?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          topic_id: string
+          updated_at?: string
+          workflow_instance_id?: string | null
+        }
+        Update: {
+          content_md?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          topic_id?: string
+          updated_at?: string
+          workflow_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landscapes_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: true
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sources: {
+        Row: {
+          created_at: string
+          id: string
+          landscape_id: string | null
+          retrieved_at: string
+          snippet: string | null
+          title: string | null
+          topic_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landscape_id?: string | null
+          retrieved_at?: string
+          snippet?: string | null
+          title?: string | null
+          topic_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landscape_id?: string | null
+          retrieved_at?: string
+          snippet?: string | null
+          title?: string | null
+          topic_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sources_landscape_id_fkey"
+            columns: ["landscape_id"]
+            isOneToOne: false
+            referencedRelation: "landscapes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sources_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           created_at: string
