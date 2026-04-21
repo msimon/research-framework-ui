@@ -1,120 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { answerInterviewAction } from '@/app/_actions/subject.action';
-import type { AgentStep } from '@/prompts/init-subject/init-subject.schema';
-import { supabaseClient } from '@/shared/lib/supabase/client';
 import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
 import { Textarea } from '@/ui/components/ui/textarea';
-
-type Turn = {
-  id: string;
-  turn_number: number;
-  agent_step: AgentStep;
-  user_answer: { text?: string } | null;
-};
+import { type InterviewTurn, useInterview } from '@/ui/views/subjects/hooks/useInterview.hook';
 
 type InterviewViewProps = {
   subjectId: string;
   subjectSlug: string;
-  initialTurns: Turn[];
+  initialTurns: InterviewTurn[];
   initialStatus: string;
 };
 
 export function InterviewView(props: InterviewViewProps) {
-  const router = useRouter();
-  const [turns, setTurns] = useState<Turn[]>(props.initialTurns);
-  const [status, setStatus] = useState(props.initialStatus);
-  const [thinking, setThinking] = useState(false);
-  const turnsRef = useRef(turns);
-  turnsRef.current = turns;
-
-  useEffect(() => {
-    console.log('[rt] mounting subscriptions for subject', props.subjectId);
-
-    const liveChannel = supabaseClient
-      .channel(`interview:${props.subjectId}`)
-      .on('broadcast', { event: 'event' }, ({ payload }: { payload: { type?: string } }) => {
-        console.log('[rt:broadcast]', payload);
-        if (payload?.type === 'thinking') setThinking(true);
-        if (payload?.type === 'step') setThinking(false);
-        if (payload?.type === 'complete') setThinking(false);
-      })
-      .subscribe((s, err) => console.log('[rt:broadcast] status', s, err ?? ''));
-
-    const turnsChannel = supabaseClient
-      .channel(`turns:interview:${props.subjectId}`)
-      .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
-        {
-          event: '*',
-          schema: 'public',
-          table: 'init_interview_turns',
-          filter: `subject_id=eq.${props.subjectId}`,
-        },
-        (payload: { eventType?: string; new: Turn | null; old?: unknown }) => {
-          console.log('[rt:turns] event', payload.eventType, payload);
-          const row = payload.new;
-          if (!row) return;
-          setTurns((prev) => {
-            const next = prev.filter((t) => t.id !== row.id);
-            next.push(row);
-            next.sort((a, b) => a.turn_number - b.turn_number);
-            return next;
-          });
-        },
-      )
-      .subscribe((s, err) => console.log('[rt:turns] status', s, err ?? ''));
-
-    const subjectChannel = supabaseClient
-      .channel(`subject-status:${props.subjectId}`)
-      .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'subjects',
-          filter: `id=eq.${props.subjectId}`,
-        },
-        (payload: { new: { status?: string } }) => {
-          console.log('[rt:subject] event', payload);
-          const nextStatus = payload.new?.status;
-          if (nextStatus) setStatus(nextStatus);
-        },
-      )
-      .subscribe((s, err) => console.log('[rt:subject] status', s, err ?? ''));
-
-    return () => {
-      console.log('[rt] unmounting subscriptions for subject', props.subjectId);
-      supabaseClient.removeChannel(liveChannel);
-      supabaseClient.removeChannel(turnsChannel);
-      supabaseClient.removeChannel(subjectChannel);
-    };
-  }, [props.subjectId]);
-
-  useEffect(() => {
-    if (status === 'ready') router.push(`/subjects/${props.subjectSlug}`);
-  }, [status, props.subjectSlug, router]);
-
-  const latestTurn = turns[turns.length - 1];
-  const awaitingAnswer =
-    latestTurn?.agent_step.type === 'question' || latestTurn?.agent_step.type === 'pushback';
-  const canAnswer = awaitingAnswer && !latestTurn?.user_answer;
-
-  const planStep = turns.find((t) => t.agent_step.type === 'plan')?.agent_step;
-  const plannedCount = planStep?.type === 'plan' ? planStep.will_ask.length : 0;
-  const answeredQuestionIds = new Set(
-    turns.flatMap((t) =>
-      t.agent_step.type === 'question' && t.user_answer ? [t.agent_step.question_id] : [],
-    ),
-  );
-  const finalizing =
-    thinking && plannedCount > 0 && answeredQuestionIds.size >= plannedCount;
+  const { turns, status, thinking, latestTurn, canAnswer, finalizing } = useInterview(props);
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,11 +36,7 @@ export function InterviewView(props: InterviewViewProps) {
         ))}
       </ol>
 
-      {finalizing ? (
-        <FinalizingScreen />
-      ) : thinking ? (
-        <ThinkingIndicator />
-      ) : null}
+      {finalizing ? <FinalizingScreen /> : thinking ? <ThinkingIndicator /> : null}
 
       {canAnswer && latestTurn && !finalizing ? (
         <AnswerComposer subjectId={props.subjectId} turn={latestTurn} />
@@ -165,7 +63,7 @@ function labelFor(id: string) {
   return QUESTION_LABELS[id] ?? id;
 }
 
-function TurnBlock({ turn }: { turn: Turn }) {
+function TurnBlock({ turn }: { turn: InterviewTurn }) {
   const step = turn.agent_step;
   const answer = turn.user_answer?.text ?? null;
 
@@ -201,9 +99,7 @@ function TurnBlock({ turn }: { turn: Turn }) {
               ? `Quick clarification · ${labelFor(step.question_id)}`
               : labelFor(step.question_id)}
           </p>
-          <Markdown className="mt-1">
-            {step.type === 'question' ? step.prompt : step.message}
-          </Markdown>
+          <Markdown className="mt-1">{step.type === 'question' ? step.prompt : step.message}</Markdown>
           {step.type === 'question' && step.dimensions?.length ? (
             <ul className="mt-2 list-inside list-disc text-xs text-muted-foreground">
               {step.dimensions.map((d) => (
@@ -246,7 +142,7 @@ function TurnBlock({ turn }: { turn: Turn }) {
   return null;
 }
 
-function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: Turn }) {
+function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: InterviewTurn }) {
   const step = turn.agent_step;
   const choices = useMemo(
     () =>
@@ -269,9 +165,7 @@ function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: Turn }) 
   const canSubmit = currentAnswer.trim().length > 0;
 
   function toggleChoice(choice: string) {
-    setSelected((prev) =>
-      prev.includes(choice) ? prev.filter((c) => c !== choice) : [...prev, choice],
-    );
+    setSelected((prev) => (prev.includes(choice) ? prev.filter((c) => c !== choice) : [...prev, choice]));
   }
 
   function submit() {

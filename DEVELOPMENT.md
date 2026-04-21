@@ -17,6 +17,7 @@ Clean Architecture over Next.js 16 + Supabase + Cloudflare. See `PLAN.md` for pr
 11. All colors in OKLCH; use shadcn components and Tailwind utilities
 12. Prefer `const` over `let` — use IIFEs, ternaries, or helpers instead of reassignment
 13. Stream agent output via Supabase Realtime broadcast + final row via `postgres_changes`. No SSE.
+14. Pages are shells (no markup); views are primarily JSX; substantial logic (subscriptions, state machines, streaming) lives in co-located `use<Feature>.hook.ts`
 
 ## Directory Structure
 
@@ -110,6 +111,63 @@ const loaded = await (async () => {
 // ❌
 let loaded;
 if (condition) { loaded = await findExisting(id); } else { loaded = await createNew(id); }
+```
+
+## View / Hook / Page Separation
+
+Presentation, logic, and routing are three separate concerns. Keep them in three different places — but be pragmatic about what counts as "logic."
+
+- **Page** (`app/**/page.tsx`) — a shell. Resolves route params, fetches initial data via commands/repositories, renders a single view component. **No markup, no `<div>`, no Tailwind classes.**
+- **View** (`*.view.tsx`) — primarily JSX. May contain trivial UI state (a disclosure toggle, a controlled input), small inline onClick wiring, and pure helper functions. **Should NOT contain substantial logic** — see below.
+- **Hook** (`use<Feature>.hook.ts`, under `ui/views/{feature}/hooks/`) — where substantial logic lives. Named `use<Feature>`, co-located with the view.
+- **Layouts** (`app/**/layout.tsx`) may contain markup — they own cross-cutting chrome shared by multiple pages.
+
+### What counts as "substantial logic" (extract to a hook)
+
+- Real-time subscriptions (Supabase broadcast / `postgres_changes`, WebSocket, SSE)
+- Multi-state flows or streaming state machines (status transitions: idle → streaming → complete → error)
+- Orchestration of multiple hooks or calls (e.g. a workflow trigger that updates several pieces of state)
+- Anything that would be testable or reusable on its own
+- Anything that, if you read the view cold, makes the layout hard to see
+
+### What can stay in the view
+
+- A single `useState` for a local UI toggle
+- A one-line `useEffect` (focus, scroll-into-view, a cheap mount check)
+- Pure helper functions defined in the same file
+- Inline event-handler wiring that calls hook-returned functions with small adaptations (e.g. `.catch(err => setErrorMessage(err.message))`)
+
+The test: **would a reader have to understand the hook to understand what the view looks like?** If yes, too much logic in the view. If they can scan the JSX and know what renders without reading any effect bodies, the balance is right.
+
+### Example (Todo app's `ramble.view.tsx` pattern)
+
+```tsx
+// ui/views/ramble/ramble.view.tsx — VIEW
+'use client';
+
+import { useRamble, type RambleInitialState } from '@/ui/views/ramble/hooks/useRamble.hook';
+
+function instructionTitle(i: Instruction): string { /* pure helper, fine in view */ }
+
+export function RambleView({ initialState }: { initialState: RambleInitialState }) {
+  const { status, audioLevel, toggleListening, errorMessage, setErrorMessage } = useRamble({ initialState });
+  return (
+    <main>
+      <Button onClick={() => toggleListening().catch((e) => setErrorMessage(e.message))}>
+        {/* the *.catch inline is fine — it's just wiring */}
+      </Button>
+    </main>
+  );
+}
+```
+
+```ts
+// ui/views/ramble/hooks/useRamble.hook.ts — HOOK: the state machine, VAD, parsing, etc.
+'use client';
+
+export function useRamble({ initialState }: { initialState: RambleInitialState }) {
+  // Deepgram stream, VAD, parsing, execution queue — the actual meat
+}
 ```
 
 ## React Hooks — Avoiding `useCallback` Chains
@@ -296,11 +354,61 @@ Miniflare simulates Workers and Workflows locally — **no Cloudflare account ne
 
 Deferred for MVP. Will return via Miniflare-backed integration tests post-MVP.
 
-## Key Rules (Repeat)
+## Review Checklist
 
-1. **Entry points** (`app/`, `workers/`) delegate to business logic (`server/domain/`)
-2. **Commands** never call other commands; **services** never call commands
-3. **Workflows** own all long-running agent work; broadcast during run, persist on completion
-4. **Channels are entity-scoped and subscribed once** — never per turn
-5. **File suffixes** make purpose obvious
-6. **Repositories** live next to the commands they support
+Single source of truth for `/review-code-change`. Each bullet is a rule to apply to a local diff. Explanations for each live in the relevant section above.
+
+### Architecture
+
+- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.workflow.ts`, `.view.tsx`, etc.)
+- Imports use `@/` alias — no relative paths or `src/` prefixes
+- No namespace imports (`import * as X from …`); named exports only for shared modules. Exception: vendored shadcn/ui components may keep their upstream `import * as React` / `import * as RadixX` form.
+- Commands don't call other commands
+- Repositories don't call other repositories
+- Services don't call commands (infra → domain is forbidden)
+- Infra/vendor code lives under `src/server/infra/*`, not under `src/server/domain/*`
+- Domain imports infra only via well-typed adapter interfaces
+
+### Server layer
+
+- Server actions use `withAuth()` or `requireAuth()`
+- No server action that just passes through to a repository — call the repo directly from the page
+- `supabaseUser()` by default; `supabaseAdmin()` only for cross-user/system work, paired with an explicit ownership check in the calling code
+- Repository naming: `get${Name}()` throws when not found; `find${Name}()` returns `null`
+- Repository file order: Find/Get → Create → Update/Upsert → Delete
+
+### Code style
+
+- Prefer `const` over `let` — use IIFEs, ternaries, or helpers instead of reassignment
+- Avoid `useCallback` chains (cascading deps). Pass values as params, or use a `callbacksRef` for handlers set once. `useCallback` with `[]` is fine.
+
+### Database
+
+- No `SELECT *` in Supabase queries — select explicit fields
+- `supabase.types.ts` is not manually edited
+- Most fields are `NOT NULL` with defaults; only nullable when genuinely optional in the business logic (booleans default, arrays `'{}'`, avoid meaningless `''` defaults)
+- New tables include `created_at` / `updated_at` TIMESTAMPTZ with `set_updated_at` / `moddatetime` trigger attached
+- User-owned tables have RLS enabled and a policy keyed on `auth.uid()`, with indexes on the columns the policy references
+
+### Prompts
+
+- `.prompt.ts` exports only `const` strings — no Zod, no helpers, no types, no message builders
+- `.schema.ts` is pure — no I/O, no prompt text, no message construction
+- Message construction (`messages: CoreMessage[]`) lives at the call site (`.workflow.ts` / `.command.ts`), not in `.prompt.ts` or `.schema.ts`
+
+### Workflows
+
+- Workflows are idempotent per step — externally visible side effects (DB writes, LLM calls) wrapped in `step.do(...)`
+
+### UI
+
+- Pages (`app/**/page.tsx`) contain no markup — only data resolution + a single view render. Layouts may have markup.
+- Views (`*.view.tsx`) are primarily JSX. Substantial logic — real-time subscriptions (Supabase broadcast / `postgres_changes`, WebSocket), streaming state machines, multi-step flows, orchestration — must live in a co-located `use<Feature>.hook.ts` under `ui/views/{feature}/hooks/`. Trivial UI state (a disclosure toggle, a one-line `useEffect` for focus) can stay in the view. Test: would a reader need to read effect bodies to understand what the view renders?
+- Hooks are named `use<Feature>.hook.ts`, co-located with the view, and export one `use<Feature>()` function.
+- UI components prefer Shadcn — no unnecessary custom components
+- Colors use OKLCH tokens via named Tailwind classes — no hex literals in JSX/CSS
+
+### Secrets & config
+
+- No secrets or hardcoded API keys
+- `process.env` is only read inside `src/shared/config/*`

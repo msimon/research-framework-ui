@@ -30,9 +30,7 @@ export type LandscapeWorkflowResult = {
   contentMd: string;
 };
 
-export async function runLandscapeWorkflow(
-  input: LandscapeWorkflowInput,
-): Promise<LandscapeWorkflowResult> {
+export async function runLandscapeWorkflow(input: LandscapeWorkflowInput): Promise<LandscapeWorkflowResult> {
   const subject = await getSubjectById(input.userId, input.subjectId);
   const topic = await findTopicBySlug(subject.id, input.topicSlug);
   if (!topic) throw new Error(`Topic ${input.topicSlug} not found`);

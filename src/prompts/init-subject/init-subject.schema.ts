@@ -15,9 +15,7 @@ export const agentStepSchema = z.discriminatedUnion('type', [
       .array(
         z.object({
           question: z.enum(['scope', 'angle', 'end_goal', 'priors', 'synthesis']),
-          reason: z
-            .string()
-            .describe('Shown to the user. One short sentence, second person. No "the user".'),
+          reason: z.string().describe('Shown to the user. One short sentence, second person. No "the user".'),
         }),
       )
       .describe('Questions you are skipping.'),

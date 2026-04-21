@@ -15,7 +15,9 @@ export type LexiconEntry = z.infer<typeof lexiconEntrySchema>;
 export const openQuestionEntrySchema = z.object({
   topicSlug: z
     .string()
-    .describe('Slug of the topic this question belongs to. Used to tag it [<slug>] in the open-questions file.'),
+    .describe(
+      'Slug of the topic this question belongs to. Used to tag it [<slug>] in the open-questions file.',
+    ),
   question: z.string().describe('One-line open question. Concrete enough that a researcher could chase it.'),
   section: z
     .enum(['key_unknowns', 'contradictions'])
@@ -31,7 +33,9 @@ export const landscapeSourceSchema = z.object({
   snippet: z
     .string()
     .optional()
-    .describe('One-line summary of what this source told you. Mirror the "what it told me" line in the markdown.'),
+    .describe(
+      'One-line summary of what this source told you. Mirror the "what it told me" line in the markdown.',
+    ),
 });
 
 export type LandscapeSource = z.infer<typeof landscapeSourceSchema>;
@@ -45,7 +49,9 @@ export const landscapeUpdatesSchema = z.object({
   lexicon_adds: z
     .array(lexiconEntrySchema)
     .default([])
-    .describe('New abbreviations, terms, and entities surfaced during this landscape. Skip duplicates of existing lexicon.'),
+    .describe(
+      'New abbreviations, terms, and entities surfaced during this landscape. Skip duplicates of existing lexicon.',
+    ),
   open_questions_adds: z
     .array(openQuestionEntrySchema)
     .default([])
@@ -53,7 +59,9 @@ export const landscapeUpdatesSchema = z.object({
   sources: z
     .array(landscapeSourceSchema)
     .default([])
-    .describe('Every URL you actually relied on while writing the landscape. This is the canonical citation list — do not omit sources just because they are referenced inline in prose.'),
+    .describe(
+      'Every URL you actually relied on while writing the landscape. This is the canonical citation list — do not omit sources just because they are referenced inline in prose.',
+    ),
 });
 
 export type LandscapeUpdates = z.infer<typeof landscapeUpdatesSchema>;

@@ -6,30 +6,16 @@ user-invocable: true
 
 # Lint Conventions
 
-Review the current local diff (`git diff` and `git diff --cached`) against these project rules.
+Review the current local diff (`git diff` and `git diff --cached`) against the rules in `DEVELOPMENT.md` → `## Review Checklist`.
 
-## Checklist
-
-- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.view.tsx`, etc.)
-- Imports use `@/` alias — no relative paths or `src/` prefixes
-- Commands don't call other commands
-- Repositories don't call other repositories
-- Infra/vendor code lives under `src/server/infra/*`, not under `src/server/domain/*`
-- Server actions use `withAuth()` or `requireAuth()`
-- No `SELECT *` in Supabase queries — select explicit fields
-- `supabase.types.ts` is not manually edited
-- New tables include `created_at` / `updated_at` fields with triggers
-- Colors use OKLCH format
-- UI components prefer Shadcn — no unnecessary custom components
-- No secrets or hardcoded API keys
-- `process.env` is only read inside `src/shared/config/*`
+**Source of truth:** `DEVELOPMENT.md` at the repo root. Read that section first, then apply each bullet to the diff. If a rule there conflicts with anything you remember, `DEVELOPMENT.md` wins.
 
 ## Report format
 
 For each finding, report:
 
 - **File and line** — e.g. `src/server/domain/tasks/tasks.command.ts:42`
-- **Rule violated** — which checklist item
+- **Rule violated** — which checklist item (quote the bullet verbatim)
 - **Severity** — error (must fix) | warning (should fix) | nit (optional)
 - **Suggestion** — how to fix it
 

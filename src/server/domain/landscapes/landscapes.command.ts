@@ -35,8 +35,17 @@ type CompleteLandscapeInput = {
   topicSlug: string;
   contentMd: string;
   briefAppend: string;
-  lexiconAdds: Array<{ kind: 'abbreviation' | 'term' | 'entity'; label: string; expansion?: string; definition: string }>;
-  openQuestionAdds: Array<{ topicSlug: string; question: string; section: 'key_unknowns' | 'contradictions' }>;
+  lexiconAdds: Array<{
+    kind: 'abbreviation' | 'term' | 'entity';
+    label: string;
+    expansion?: string;
+    definition: string;
+  }>;
+  openQuestionAdds: Array<{
+    topicSlug: string;
+    question: string;
+    section: 'key_unknowns' | 'contradictions';
+  }>;
   sources: Array<{ url: string; title?: string; snippet?: string }>;
 };
 
@@ -135,10 +144,7 @@ function appendLexicon(
   return appendTopicSection(current, topicHeading, body);
 }
 
-function appendOpenQuestions(
-  current: string,
-  entries: CompleteLandscapeInput['openQuestionAdds'],
-): string {
+function appendOpenQuestions(current: string, entries: CompleteLandscapeInput['openQuestionAdds']): string {
   if (entries.length === 0) return current;
 
   const keyUnknowns = entries.filter((e) => e.section === 'key_unknowns');
@@ -166,9 +172,7 @@ function appendUnderSection(current: string, heading: string, block: string): st
 
   const lines = current.split('\n');
   const headingIdx = lines.findIndex((line) => line.trim() === heading);
-  const nextHeadingIdx = lines.findIndex(
-    (line, idx) => idx > headingIdx && /^##\s/.test(line.trim()),
-  );
+  const nextHeadingIdx = lines.findIndex((line, idx) => idx > headingIdx && /^##\s/.test(line.trim()));
   const insertIdx = nextHeadingIdx === -1 ? lines.length : nextHeadingIdx;
 
   const before = lines.slice(0, insertIdx);
@@ -178,7 +182,12 @@ function appendUnderSection(current: string, heading: string, block: string): st
   while (before.length > 0 && before[before.length - 1]?.trim() === '') before.pop();
   before.push('', ...blockLines, '');
 
-  return [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+  return (
+    [...before, ...after]
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trimEnd() + '\n'
+  );
 }
 
 function escapeCell(value: string): string {

@@ -1,30 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { runDiscoverAction } from '@/app/_actions/discover.action';
-import { supabaseClient } from '@/shared/lib/supabase/client';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-
-type Topic = {
-  id: string;
-  slug: string;
-  title: string;
-  pitch: string;
-  rationale: string;
-  category: string;
-  status: string;
-  sort_order: number;
-  discover_hint: string | null;
-  created_at: string;
-};
+import { type TopicsSectionTopic, useTopicsSection } from '@/ui/views/subjects/hooks/useTopicsSection.hook';
 
 type Props = {
   subjectId: string;
   subjectSlug: string;
-  initialTopics: Topic[];
+  initialTopics: TopicsSectionTopic[];
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -37,12 +23,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   economic: 'Economic',
   other: 'Other',
 };
-
-function statusRank(status: string): number {
-  if (status === 'deep') return 0;
-  if (status === 'landscape') return 1;
-  return 2;
-}
 
 function rowBgForStatus(status: string, hasHint: boolean): string {
   if (status === 'deep') return 'bg-accent/40';
@@ -57,83 +37,11 @@ function statusLabel(status: string): string | null {
 }
 
 export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) {
-  const [topics, setTopics] = useState<Topic[]>(initialTopics);
-  const [thinking, setThinking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { sortedTopics, thinking, error, pending, triggerDiscover } = useTopicsSection({
+    subjectId,
+    initialTopics,
+  });
 
-  useEffect(() => {
-    const broadcast = supabaseClient
-      .channel(`subject:${subjectId}`)
-      .on('broadcast', { event: 'event' }, ({ payload }: { payload: { type?: string } }) => {
-        if (payload?.type === 'discover:thinking') setThinking(true);
-        if (payload?.type === 'discover:complete') setThinking(false);
-      })
-      .subscribe();
-
-    const rows = supabaseClient
-      .channel(`topics:subject:${subjectId}`)
-      .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'topics',
-          filter: `subject_id=eq.${subjectId}`,
-        },
-        (payload: { new: Topic | null }) => {
-          const row = payload.new;
-          if (!row) return;
-          setTopics((prev) => {
-            if (prev.some((t) => t.id === row.id)) return prev;
-            return [...prev, row];
-          });
-        },
-      )
-      .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'topics',
-          filter: `subject_id=eq.${subjectId}`,
-        },
-        (payload: { new: Topic | null }) => {
-          const row = payload.new;
-          if (!row) return;
-          setTopics((prev) => prev.map((t) => (t.id === row.id ? row : t)));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(broadcast);
-      supabaseClient.removeChannel(rows);
-    };
-  }, [subjectId]);
-
-  function triggerDiscover(hint?: string) {
-    setError(null);
-    const formData = new FormData();
-    formData.set('subjectId', subjectId);
-    if (hint) formData.set('hint', hint);
-    startTransition(async () => {
-      const result = await runDiscoverAction(formData);
-      if (result && 'error' in result) setError(result.error ?? 'Discover failed');
-    });
-  }
-
-  const sortedTopics = useMemo(
-    () =>
-      [...topics].sort((a, b) => {
-        const rankDiff = statusRank(a.status) - statusRank(b.status);
-        if (rankDiff !== 0) return rankDiff;
-        return a.sort_order - b.sort_order;
-      }),
-    [topics],
-  );
   const hasTopics = sortedTopics.length > 0;
   const isWorking = thinking || pending;
 
@@ -190,7 +98,7 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
   );
 }
 
-function TopicRow({ topic }: { topic: Topic; subjectSlug: string }) {
+function TopicRow({ topic }: { topic: TopicsSectionTopic; subjectSlug: string }) {
   const stateLabel = statusLabel(topic.status);
   return (
     <div className="flex flex-col gap-0.5">
