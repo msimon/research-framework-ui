@@ -5,17 +5,24 @@ import { supabaseClient } from '@/shared/lib/supabase/client';
 import { Button } from '@/ui/components/ui/button';
 
 export function AuthRequiredView() {
-  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = async () => {
-    setStatus('Redirecting...');
-
-    await supabaseClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/subjects`,
-      },
-    });
+    setError(null);
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback?next=/subjects`;
+      const { data, error: signInError } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      if (signInError) setError(signInError.message);
+      else if (!data?.url) setError('No redirect URL returned');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -25,7 +32,7 @@ export function AuthRequiredView() {
       <div className="mt-2 flex w-full flex-col gap-2">
         <Button onClick={handleSignIn}>Continue with Google</Button>
       </div>
-      {status && <p className="text-xs text-muted-foreground">{status}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </main>
   );
 }

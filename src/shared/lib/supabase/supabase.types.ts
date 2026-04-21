@@ -34,6 +34,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      init_interview_turns: {
+        Row: {
+          agent_step: Json
+          created_at: string
+          id: string
+          subject_id: string
+          turn_number: number
+          updated_at: string
+          user_answer: Json | null
+        }
+        Insert: {
+          agent_step: Json
+          created_at?: string
+          id?: string
+          subject_id: string
+          turn_number: number
+          updated_at?: string
+          user_answer?: Json | null
+        }
+        Update: {
+          agent_step?: Json
+          created_at?: string
+          id?: string
+          subject_id?: string
+          turn_number?: number
+          updated_at?: string
+          user_answer?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "init_interview_turns_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          framing: Json
+          id: string
+          lexicon_md: string
+          open_questions_md: string
+          research_brief_md: string
+          seed_problem_statement: string | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          framing?: Json
+          id?: string
+          lexicon_md?: string
+          open_questions_md?: string
+          research_brief_md?: string
+          seed_problem_statement?: string | null
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          framing?: Json
+          id?: string
+          lexicon_md?: string
+          open_questions_md?: string
+          research_brief_md?: string
+          seed_problem_statement?: string | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           active: boolean

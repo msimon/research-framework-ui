@@ -43,9 +43,9 @@ src/
 ├── shared/
 │   ├── config/                     # Typed config + Zod env parsing (ONLY place that reads process.env)
 │   └── lib/supabase/               # client.ts, server.ts, proxy.ts, supabase.types.ts
+├── prompts/{skill}/                # Ported rf skill: {skill}.prompt.ts + {skill}.schema.ts
 └── middleware.ts                   # Next.js edge middleware (refresh Supabase session)
 workers/                            # Cloudflare Workflow classes (e.g. DeepResearchTurnWorkflow)
-prompts/                            # Ported rf skill prompts (.prompt.ts)
 supabase/                           # config.toml, migrations/, seed.sql
 ```
 
@@ -87,9 +87,9 @@ conversation.action.ts       Server actions
 conversation.command.ts      Business logic commands
 conversation.repository.ts   Data access
 conversation.service.ts      External integrations
-conversation.schema.ts       Zod schemas
+conversation.schema.ts       Zod schemas + inferred types (pure contract)
 conversation.dto.ts          API request/response types
-conversation.prompt.ts       AI prompts
+conversation.prompt.ts       LLM system prompt text only (no schemas, no logic)
 conversation.workflow.ts     Cloudflare Workflow class
 conversation.view.tsx        Feature views
 useSomething.hook.ts         React hooks
@@ -205,7 +205,22 @@ Single transport for live agent output: **broadcast channel during the run + pos
 
 ## Prompts Directory
 
-Each rf skill in `/Users/marc/programing/perso/research-framwork/skills/*/SKILL.md` ports to a TypeScript module under `prompts/` with the `.prompt.ts` suffix. Prompts are pure (no I/O) and return strings or `CoreMessage[]` — they're called from commands, workflows, or services. Keep them aligned with the source skill in spirit but feel free to diverge.
+Each rf skill in `/Users/marc/programing/perso/research-framwork/skills/*/SKILL.md` ports to its own folder under `src/prompts/{skill}/` with two files: `{skill}.prompt.ts` (system prompt text) and `{skill}.schema.ts` (structured-output contract). Keep them aligned with the source skill in spirit but feel free to diverge.
+
+### `.prompt.ts` — system prompt text only
+
+- Exports one or more `const` strings (e.g. `INIT_SUBJECT_SYSTEM_PROMPT`). That is all.
+- **No** Zod schemas, **no** message builders, **no** helpers, **no** types derived from schemas, **no** imports beyond what's needed for the string itself (usually none).
+- Think of it as a `.md` that happens to be typed — a reader should be able to copy-paste it into another runtime without pulling the rest of the repo.
+
+### `.schema.ts` — structured-output contract
+
+- Zod schemas + the types inferred from them (e.g. `agentStepSchema`, `AgentStep`). Imported by both the caller (workflow/command) and any UI that renders the structured output.
+- Pure — no I/O, no prompt text, no message construction.
+
+### Message construction lives at the call site
+
+Building `messages: CoreMessage[]` is domain logic: it pulls in entity state, history, per-turn context. That goes in the caller — typically the `.workflow.ts` or `.command.ts` that invokes the LLM. Do **not** put a `buildXxxMessages` function inside `.prompt.ts` or `.schema.ts`.
 
 ## When to Add a Server Action vs API Route
 

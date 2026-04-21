@@ -29,6 +29,6 @@ export const serverConfig = {
   llm: {
     anthropicApiKey: env.ANTHROPIC_API_KEY,
     model: baseConfig.llm.model,
-    thinkingBudgetTokens: baseConfig.llm.thinkingBudgetTokens,
+    effort: baseConfig.llm.effort,
   },
 } as const;

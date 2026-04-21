@@ -8,6 +8,6 @@ export const baseConfig = {
   },
   llm: {
     model: 'claude-opus-4-7',
-    thinkingBudgetTokens: 8000,
+    effort: 'high',
   },
 } as const;
