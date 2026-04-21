@@ -1,0 +1,14 @@
+@theme {
+  /* Scaffold color palette — regenerate via gstack-design skill later. */
+
+  --color-ink-5: oklch(95.3% 0 0deg);
+  --color-ink-10: oklch(88.2% 0.004 250deg);
+  --color-ink-20: oklch(79.5% 0.008 250deg);
+  --color-ink-30: oklch(70.5% 0.012 250deg);
+  --color-ink-40: oklch(63% 0.016 250deg);
+  --color-ink-50: oklch(56% 0.018 250deg);
+  --color-ink-60: oklch(50.5% 0.018 250deg);
+  --color-ink-70: oklch(43.5% 0.014 250deg);
+  --color-ink-80: oklch(36.5% 0.012 250deg);
+  --color-ink-90: oklch(28.5% 0.008 250deg);
+}

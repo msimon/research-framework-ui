@@ -2,6 +2,14 @@
 
 Web UI around the `rf` research framework, running the same pipeline (minus pitch/slides) so research can be done from anywhere and shared. MVP covers `init-subject → discover/add-topics → landscape → deep-research (+ resume)`. Synthesize, solution, and pitch are out of scope for MVP.
 
+## 0. Source repos (absolute paths)
+
+| Name | Path | Role |
+|---|---|---|
+| **rf plugin** | `/Users/marc/programing/perso/research-framwork` | Source of prompts and workflow semantics. Port `skills/*/SKILL.md` → `prompts/*.ts`. Templates in `templates/subject/` inform the DB schema and default content. |
+| **Todo** | `/Users/marc/programing/perso/Todo` | Source of framework scaffolding. See §6 for exact files to copy. Next.js 16 + Supabase + Clean Architecture reference. |
+| **this repo** | `/Users/marc/programing/perso/research-framwork-ui` | Target. Currently empty. |
+
 ## 1. Stack
 
 | Layer | Choice |
