@@ -21,11 +21,6 @@ export const deepResearchInsightSchema = z.object({
 export type DeepResearchInsight = z.infer<typeof deepResearchInsightSchema>;
 
 export const deepResearchTurnSchema = z.object({
-  findings_md: z
-    .string()
-    .describe(
-      'Findings markdown: the sourced, cited prose answering the turn. Write this field FIRST in the JSON — the UI streams it live as you fill it. Start with content directly, no preamble. Do NOT emit findings as plain output text; findings must live in this field only.',
-    ),
   my_read_md: z
     .string()
     .describe(

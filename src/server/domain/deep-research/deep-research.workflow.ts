@@ -1,5 +1,5 @@
 import 'server-only';
-import { hasToolCall, parsePartialJson, stepCountIs, streamText, tool } from 'ai';
+import { hasToolCall, stepCountIs, streamText, tool } from 'ai';
 
 import { DEEP_RESEARCH_SYSTEM_PROMPT } from '@/prompts/deep-research/deep-research.prompt';
 import { type DeepResearchTurn, deepResearchTurnSchema } from '@/prompts/deep-research/deep-research.schema';
@@ -69,19 +69,19 @@ export async function runDeepResearchTurnWorkflow(
 
     send({ type: 'status', status: 'streaming' });
 
+    const FINDINGS_MARKER = /(?:^|\n)# Findings\s*\n+/;
+    let pending = '';
+    let markerFound = false;
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
-    let emitInputId: string | null = null;
-    let emitInputBuffer = '';
-    let streamedFindings = '';
 
     const result = streamText({
       model: anthropicModel(),
       tools: {
-        web_search: anthropicWebSearchTool({ maxUses: 4 }),
+        web_search: anthropicWebSearchTool({ maxUses: 10 }),
         emit_turn: tool({
           description:
-            'Emit the full turn output — findings markdown plus structured byproducts. Fill `findings_md` first; the UI streams it live. Call exactly once.',
+            'Emit structured byproducts: my read, follow-up question, lexicon adds, insights, sources. Call exactly once after the findings markdown is complete.',
           inputSchema: deepResearchTurnSchema,
         }),
       },
@@ -104,27 +104,23 @@ export async function runDeepResearchTurnWorkflow(
         currentUserText: turn.user_text ?? '',
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
-      async onChunk({ chunk }) {
-        if (chunk.type === 'reasoning-delta') {
+      onChunk({ chunk }) {
+        if (chunk.type === 'text-delta') {
+          if (markerFound) {
+            send({ type: 'text', delta: chunk.text });
+          } else {
+            pending += chunk.text;
+            const match = FINDINGS_MARKER.exec(pending);
+            if (match) {
+              markerFound = true;
+              const after = pending.slice(match.index + match[0].length);
+              pending = '';
+              if (after.length > 0) send({ type: 'text', delta: after });
+            }
+          }
+        } else if (chunk.type === 'reasoning-delta') {
           reasoningBuffer += chunk.text;
           send({ type: 'reasoning', delta: chunk.text });
-        } else if (chunk.type === 'tool-input-start') {
-          if (chunk.toolName === 'emit_turn') {
-            emitInputId = chunk.id;
-            emitInputBuffer = '';
-            streamedFindings = '';
-          }
-        } else if (chunk.type === 'tool-input-delta') {
-          if (chunk.id !== emitInputId) return;
-          emitInputBuffer += chunk.delta;
-          const parsed = await parsePartialJson(emitInputBuffer);
-          const partial = parsed.value as { findings_md?: unknown } | undefined;
-          const findings = typeof partial?.findings_md === 'string' ? partial.findings_md : '';
-          if (findings.length > streamedFindings.length) {
-            const delta = findings.slice(streamedFindings.length);
-            streamedFindings = findings;
-            send({ type: 'text', delta });
-          }
         } else if (chunk.type === 'tool-call') {
           if (chunk.toolName === 'web_search') {
             toolCallsLog.push({ id: chunk.toolCallId, name: chunk.toolName, input: chunk.input });
@@ -161,9 +157,13 @@ export async function runDeepResearchTurnWorkflow(
       `[deep-research] subject=${subject.slug} topic=${topic.slug} session=${session.id} turn=${turn.turn_number} steps=${steps.length} web_search=${webSearchCount} input_tokens=${totalUsage.inputTokens ?? 0} cached_input_tokens=${totalUsage.cachedInputTokens ?? 0} output_tokens=${totalUsage.outputTokens ?? 0}`,
     );
 
+    const finalText = await result.text;
+    const endMatch = FINDINGS_MARKER.exec(finalText);
+    const findingsMd = endMatch ? finalText.slice(endMatch.index + endMatch[0].length) : finalText;
+
     await completeTurn({
       turnId: input.turnId,
-      findingsMd: turnOutput.findings_md,
+      findingsMd,
       myReadMd: turnOutput.my_read_md,
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,
