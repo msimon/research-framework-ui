@@ -33,9 +33,11 @@ export const agentStepSchema = z.discriminatedUnion('type', [
       .optional()
       .describe('Optional list of dimensions/axes the user should cover in their answer.'),
     choices: z
-      .array(z.string())
+      .array(z.string().max(85))
       .optional()
-      .describe('Optional pre-baked choices the user can click instead of typing. 2–6 items.'),
+      .describe(
+        'Optional pre-baked choices the user can click instead of typing. 2–6 items. Aim for ≤ 65 characters per choice; stretch to 85 only if really needed — they render as buttons.',
+      ),
     example: z.string().optional().describe('Optional one-line example answer in the user’s likely domain.'),
     allow_free_text: z.boolean().describe('Whether free-text input is allowed in addition to choices.'),
   }),

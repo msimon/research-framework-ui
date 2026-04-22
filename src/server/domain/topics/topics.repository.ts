@@ -21,6 +21,20 @@ export async function findTopicsBySubject(subjectId: string): Promise<TopicRow[]
   return data ?? [];
 }
 
+export async function findTopicById(topicId: string): Promise<TopicRow | null> {
+  const supabase = await supabaseUser();
+  const { data, error } = await supabase.from('topics').select(COLUMNS).eq('id', topicId).maybeSingle();
+
+  if (error) throw new Error(`Failed to load topic: ${error.message}`);
+  return data;
+}
+
+export async function getTopicById(topicId: string): Promise<TopicRow> {
+  const topic = await findTopicById(topicId);
+  if (!topic) throw new Error('Topic not found');
+  return topic;
+}
+
 export async function findTopicBySlug(subjectId: string, slug: string): Promise<TopicRow | null> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase

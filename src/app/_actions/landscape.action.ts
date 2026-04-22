@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { getOrCreateLandscape } from '@/server/domain/landscapes/landscapes.command';
@@ -44,7 +43,5 @@ export const triggerLandscapeAction = withAuth(async (userId: string, formData: 
     return { error: message };
   }
 
-  revalidatePath(`/subjects/${subject.slug}/topics/${topic.slug}`);
-  revalidatePath(`/subjects/${subject.slug}`);
   return { ok: true as const, landscapeId: landscape.id };
 });

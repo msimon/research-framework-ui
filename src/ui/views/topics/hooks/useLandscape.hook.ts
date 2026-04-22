@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import { supabaseClient } from '@/shared/lib/supabase/client';
@@ -44,13 +45,13 @@ type Args = {
 };
 
 export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources }: Args) {
+  const router = useRouter();
   const [landscape, setLandscape] = useState<LandscapeState | null>(initialLandscape);
   const [sources, setSources] = useState<SourceItem[]>(initialSources);
   const [streaming, setStreaming] = useState(initialLandscape?.status === 'streaming');
   const [liveContent, setLiveContent] = useState('');
   const [liveReasoning, setLiveReasoning] = useState('');
   const [toolCalls, setToolCalls] = useState<ToolCallChip[]>([]);
-  const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(initialLandscape?.error_message ?? null);
   const [reasoningOpen, setReasoningOpen] = useState(true);
 
@@ -84,6 +85,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
           case 'complete':
             setStreaming(false);
             setReasoningOpen(false);
+            router.refresh();
             break;
           case 'error':
             setStreaming(false);
@@ -96,7 +98,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     return () => {
       supabaseClient.removeChannel(channel);
     };
-  }, [landscapeId]);
+  }, [landscapeId, router]);
 
   useEffect(() => {
     if (!landscapeId) return;
@@ -153,7 +155,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     };
   }, [landscapeId, topicSlug]);
 
-  function trigger() {
+  async function trigger() {
     setError(null);
     setLiveContent('');
     setLiveReasoning('');
@@ -165,20 +167,18 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     formData.set('subjectSlug', subjectSlug);
     formData.set('topicSlug', topicSlug);
 
-    startTransition(async () => {
-      const result = await triggerLandscapeAction(formData);
-      if (result && 'error' in result) {
-        setStreaming(false);
-        setError(result.error ?? 'Landscape failed');
-      }
-    });
+    const result = await triggerLandscapeAction(formData);
+    if (result && 'error' in result) {
+      setStreaming(false);
+      setError(result.error ?? 'Landscape failed');
+    }
   }
 
   const persistedContent = landscape?.content_md ?? '';
   const showStreamed = streaming || (!persistedContent && liveContent.length > 0);
   const displayContent = showStreamed ? liveContent : persistedContent;
   const hasContent = displayContent.trim().length > 0;
-  const isWorking = pending || streaming;
+  const isWorking = streaming;
 
   return {
     landscape,

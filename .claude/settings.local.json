@@ -35,7 +35,11 @@
       "Bash(curl -sI --max-time 5 \"http://127.0.0.1:3000/?debug=1\")",
       "Bash(curl -sI --max-time 5 \"http://127.0.0.1:3000/?probe=1\")",
       "Bash(awk '$4==\"cwd\"{print $NF}')",
-      "Bash(awk '{print $2}')"
+      "Bash(awk '{print $2}')",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "WebFetch(domain:docs.anthropic.com)"
     ]
   }
 }

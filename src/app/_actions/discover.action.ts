@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { runDiscoverWorkflow } from '@/server/domain/discover/discover.workflow';
@@ -26,6 +25,5 @@ export const runDiscoverAction = withAuth(async (userId: string, formData: FormD
     subjectId: parsed.data.subjectId,
     narrowHint: parsed.data.hint,
   });
-  revalidatePath(`/subjects/${result.subjectSlug}`);
   return { ok: true as const, insertedCount: result.insertedCount };
 });

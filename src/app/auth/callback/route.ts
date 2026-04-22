@@ -33,8 +33,16 @@ function extractNameFromUserMetadata(metadata: Record<string, unknown>): string 
   return null;
 }
 
+function requestOrigin(request: NextRequest): string {
+  const url = new URL(request.url);
+  const host = request.headers.get('host') ?? url.host;
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
+  return `${proto}://${host}`;
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = requestOrigin(request);
   const code = searchParams.get('code');
   const next = getSafeRedirectPath(searchParams.get('next'));
   const supabase = await supabaseUser();

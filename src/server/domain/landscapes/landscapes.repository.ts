@@ -10,7 +10,7 @@ type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 const LANDSCAPE_COLUMNS =
   'id, topic_id, content_md, status, workflow_instance_id, error_message, created_at, updated_at';
 const SOURCE_COLUMNS =
-  'id, topic_id, landscape_id, url, title, snippet, retrieved_at, created_at, updated_at';
+  'id, topic_id, landscape_id, turn_id, url, title, snippet, retrieved_at, created_at, updated_at';
 
 export async function findLandscapeByTopic(topicId: string): Promise<LandscapeRow | null> {
   const supabase = await supabaseUser();

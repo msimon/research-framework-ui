@@ -4,7 +4,7 @@ import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { listTopicsForSubject } from '@/server/domain/topics/topics.command';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import { Markdown } from '@/ui/components/markdown';
-import { Button } from '@/ui/components/ui/button';
+import { SectionNav } from '@/ui/components/section-nav';
 import { TopicsSection } from '@/ui/views/subjects/topics-section.view';
 
 type Props = {
@@ -29,22 +29,31 @@ export async function SubjectDetailView({ slug }: Props) {
     created_at: t.created_at,
   }));
 
+  const sections = [
+    { id: 'topics', label: 'Topics' },
+    ...(subject.research_brief_md ? [{ id: 'research-brief', label: 'Research brief' }] : []),
+    ...(subject.open_questions_md ? [{ id: 'open-questions', label: 'Open questions' }] : []),
+    ...(subject.lexicon_md ? [{ id: 'lexicon', label: 'Lexicon' }] : []),
+  ];
+
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">{subject.title}</h2>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">{subject.slug}</p>
-        </div>
-        <Button asChild variant="outline">
-          <Link href="/subjects">All subjects</Link>
-        </Button>
+      <header className="flex flex-col gap-1">
+        <Link href="/subjects" className="text-xs text-muted-foreground hover:underline">
+          ← All subjects
+        </Link>
+        <h2 className="text-xl font-semibold">{subject.title}</h2>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{subject.slug}</p>
       </header>
 
-      <TopicsSection subjectId={subject.id} subjectSlug={subject.slug} initialTopics={initialTopics} />
+      <SectionNav sections={sections} />
+
+      <div id="topics" className="scroll-mt-16">
+        <TopicsSection subjectId={subject.id} subjectSlug={subject.slug} initialTopics={initialTopics} />
+      </div>
 
       {subject.research_brief_md ? (
-        <section className="flex flex-col gap-2">
+        <section id="research-brief" className="flex scroll-mt-16 flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">Research brief</h3>
           <div className="rounded-md border bg-muted/20 p-4">
             <Markdown>{subject.research_brief_md}</Markdown>
@@ -53,7 +62,7 @@ export async function SubjectDetailView({ slug }: Props) {
       ) : null}
 
       {subject.open_questions_md ? (
-        <section className="flex flex-col gap-2">
+        <section id="open-questions" className="flex scroll-mt-16 flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">Open questions</h3>
           <div className="rounded-md border bg-muted/20 p-4">
             <Markdown>{subject.open_questions_md}</Markdown>
@@ -62,7 +71,7 @@ export async function SubjectDetailView({ slug }: Props) {
       ) : null}
 
       {subject.lexicon_md ? (
-        <section className="flex flex-col gap-2">
+        <section id="lexicon" className="flex scroll-mt-16 flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">Lexicon</h3>
           <div className="rounded-md border bg-muted/20 p-4">
             <Markdown>{subject.lexicon_md}</Markdown>

@@ -34,6 +34,121 @@ export type Database = {
   }
   public: {
     Tables: {
+      deep_research_sessions: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          last_turn_at: string | null
+          seed_question: string
+          status: string
+          summary_md: string
+          topic_id: string
+          turn_count: number
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          last_turn_at?: string | null
+          seed_question: string
+          status?: string
+          summary_md?: string
+          topic_id: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          last_turn_at?: string | null
+          seed_question?: string
+          status?: string
+          summary_md?: string
+          topic_id?: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deep_research_sessions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deep_research_turns: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          findings_md: string | null
+          followup_question: string | null
+          id: string
+          insights: Json
+          model_used: string | null
+          my_read_md: string | null
+          reasoning_md: string | null
+          role: string
+          session_id: string
+          status: string
+          tool_calls: Json
+          turn_number: number
+          updated_at: string
+          user_text: string | null
+          workflow_instance_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          findings_md?: string | null
+          followup_question?: string | null
+          id?: string
+          insights?: Json
+          model_used?: string | null
+          my_read_md?: string | null
+          reasoning_md?: string | null
+          role: string
+          session_id: string
+          status?: string
+          tool_calls?: Json
+          turn_number: number
+          updated_at?: string
+          user_text?: string | null
+          workflow_instance_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          findings_md?: string | null
+          followup_question?: string | null
+          id?: string
+          insights?: Json
+          model_used?: string | null
+          my_read_md?: string | null
+          reasoning_md?: string | null
+          role?: string
+          session_id?: string
+          status?: string
+          tool_calls?: Json
+          turn_number?: number
+          updated_at?: string
+          user_text?: string | null
+          workflow_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deep_research_turns_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "deep_research_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       init_interview_turns: {
         Row: {
           agent_step: Json
@@ -122,6 +237,7 @@ export type Database = {
           snippet: string | null
           title: string | null
           topic_id: string
+          turn_id: string | null
           updated_at: string
           url: string
         }
@@ -133,6 +249,7 @@ export type Database = {
           snippet?: string | null
           title?: string | null
           topic_id: string
+          turn_id?: string | null
           updated_at?: string
           url: string
         }
@@ -144,6 +261,7 @@ export type Database = {
           snippet?: string | null
           title?: string | null
           topic_id?: string
+          turn_id?: string | null
           updated_at?: string
           url?: string
         }
@@ -160,6 +278,13 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sources_turn_id_fkey"
+            columns: ["turn_id"]
+            isOneToOne: false
+            referencedRelation: "deep_research_turns"
             referencedColumns: ["id"]
           },
         ]

@@ -34,21 +34,30 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
     isWorking,
   } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources });
 
+  const showExplainer = isWorking && !hasContent;
+
   return (
     <div className="flex flex-col gap-6">
-      {!landscape || (landscape.status === 'pending' && !isWorking) ? (
+      {(!landscape || landscape.status === 'pending') && !isWorking ? (
         <div className="flex flex-col items-start gap-3 rounded-md border border-dashed p-6 text-sm text-muted-foreground">
           <p>
             No landscape yet. Landscape runs a substantive overview of this topic — structured sections
             (players, economics, dynamics), and updates to the subject brief, lexicon, and open questions.
           </p>
-          <Button onClick={trigger} disabled={isWorking}>
+          <Button
+            onClick={() => {
+              void trigger();
+            }}
+            disabled={isWorking}
+          >
             Run landscape
           </Button>
         </div>
       ) : null}
 
-      {isWorking ? <StreamingHeader toolCalls={toolCalls} /> : null}
+      {showExplainer ? <LandscapeExplainer toolCalls={toolCalls} /> : null}
+
+      {isWorking && hasContent ? <StreamingHeader toolCalls={toolCalls} /> : null}
 
       {isWorking && liveReasoning.trim().length > 0 ? (
         <ReasoningBlock
@@ -68,7 +77,14 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
         <div className="rounded-md border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
           <div className="mt-3">
-            <Button size="sm" variant="outline" onClick={trigger} disabled={isWorking}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void trigger();
+              }}
+              disabled={isWorking}
+            >
               Retry
             </Button>
           </div>
@@ -76,9 +92,11 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
       ) : null}
 
       {sources.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Sources</h3>
-          <ul className="flex flex-col divide-y divide-border/40 rounded-md border bg-muted/20">
+        <details id="sources" className="scroll-mt-16 rounded-md border bg-muted/20">
+          <summary className="cursor-pointer select-none p-3 text-sm font-medium text-muted-foreground">
+            Sources ({sources.length})
+          </summary>
+          <ul className="flex flex-col divide-y divide-border/40 border-t">
             {sources.map((source, idx) => (
               <li key={source.id} className="p-3 text-sm">
                 <div className="flex items-baseline gap-2">
@@ -98,15 +116,55 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
+    </div>
+  );
+}
 
-      {landscape?.status === 'complete' && !isWorking ? (
-        <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={trigger} disabled={isWorking}>
-            Refresh landscape
-          </Button>
-        </div>
+function LandscapeExplainer({ toolCalls }: { toolCalls: ToolCallChip[] }) {
+  const [tick, setTick] = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, []);
+
+  const dots = tick % 4;
+  const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
+
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-md border bg-muted/20 p-8 text-center">
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+        <span className="tabular-nums">{elapsed}s</span>
+      </div>
+      <div>
+        <p className="text-base font-medium">Mapping the topic landscape{'.'.repeat(dots)}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Researching players, economics, current dynamics, and contested narratives for this topic.
+          <br />
+          You'll get a structured overview with sections and cited sources, plus updates to your subject
+          brief, lexicon, and open questions.
+          <br />
+          This usually takes 90–180 seconds.
+        </p>
+      </div>
+      {toolCalls.length > 0 ? (
+        <ul className="flex flex-wrap justify-center gap-1.5">
+          {toolCalls.map((call) => (
+            <li
+              key={call.id}
+              className={`rounded-full px-2 py-0.5 text-[11px] ${
+                call.resolved ? 'bg-muted text-foreground/80' : 'bg-primary/10 text-primary animate-pulse'
+              }`}
+            >
+              {call.name === 'web_search' ? '🔎 ' : ''}
+              {call.query.length > 60 ? `${call.query.slice(0, 60)}…` : call.query}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );

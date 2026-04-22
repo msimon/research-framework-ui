@@ -165,7 +165,12 @@ function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: Intervie
   const canSubmit = currentAnswer.trim().length > 0;
 
   function toggleChoice(choice: string) {
-    setSelected((prev) => (prev.includes(choice) ? prev.filter((c) => c !== choice) : [...prev, choice]));
+    const isStartingFresh = choice === "I'm starting fresh";
+    setSelected((prev) => {
+      if (prev.includes(choice)) return prev.filter((c) => c !== choice);
+      if (isStartingFresh) return [choice];
+      return [...prev.filter((c) => c !== "I'm starting fresh"), choice];
+    });
   }
 
   function submit() {
@@ -202,14 +207,14 @@ function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: Intervie
           <button
             type="button"
             onClick={() => setMode('select')}
-            className={`rounded px-3 py-1 transition ${mode === 'select' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`cursor-pointer rounded px-3 py-1 transition ${mode === 'select' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Select
           </button>
           <button
             type="button"
             onClick={() => setMode('write')}
-            className={`rounded px-3 py-1 transition ${mode === 'write' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`cursor-pointer rounded px-3 py-1 transition ${mode === 'write' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Write my own
           </button>
@@ -247,7 +252,7 @@ function AnswerComposer({ subjectId, turn }: { subjectId: string; turn: Intervie
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-end gap-3">
         <Button type="submit" disabled={pending || !canSubmit}>
           {pending ? 'Sending…' : 'Send answer'}
         </Button>
