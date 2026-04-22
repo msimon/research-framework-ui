@@ -39,7 +39,8 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:ai-sdk.dev)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(pkill -f \"opennextjs-cloudflare preview|wrangler dev|cf:preview\")"
     ]
   }
 }

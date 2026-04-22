@@ -171,6 +171,21 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     if (result && 'error' in result) {
       setStreaming(false);
       setError(result.error ?? 'Landscape failed');
+      return;
+    }
+    if (result && 'landscapeId' in result && result.landscapeId) {
+      const newId = result.landscapeId;
+      setLandscape((prev) =>
+        prev && prev.id === newId
+          ? prev
+          : {
+              id: newId,
+              content_md: '',
+              status: 'streaming',
+              error_message: null,
+              updated_at: new Date().toISOString(),
+            },
+      );
     }
   }
 

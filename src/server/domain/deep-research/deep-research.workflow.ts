@@ -1,5 +1,5 @@
 import 'server-only';
-import { hasToolCall, stepCountIs, streamText, tool } from 'ai';
+import { hasToolCall, parsePartialJson, stepCountIs, streamText, tool } from 'ai';
 
 import { DEEP_RESEARCH_SYSTEM_PROMPT } from '@/prompts/deep-research/deep-research.prompt';
 import { type DeepResearchTurn, deepResearchTurnSchema } from '@/prompts/deep-research/deep-research.schema';
@@ -69,9 +69,11 @@ export async function runDeepResearchTurnWorkflow(
 
     send({ type: 'status', status: 'streaming' });
 
-    let findingsMd = '';
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
+    let emitInputId: string | null = null;
+    let emitInputBuffer = '';
+    let streamedFindings = '';
 
     const result = streamText({
       model: anthropicModel(),
@@ -79,7 +81,7 @@ export async function runDeepResearchTurnWorkflow(
         web_search: anthropicWebSearchTool({ maxUses: 4 }),
         emit_turn: tool({
           description:
-            'Emit structured byproducts: my read, follow-up question, lexicon adds, insights, sources. Call exactly once after the findings markdown is complete.',
+            'Emit the full turn output — findings markdown plus structured byproducts. Fill `findings_md` first; the UI streams it live. Call exactly once.',
           inputSchema: deepResearchTurnSchema,
         }),
       },
@@ -102,13 +104,27 @@ export async function runDeepResearchTurnWorkflow(
         currentUserText: turn.user_text ?? '',
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
-      onChunk({ chunk }) {
-        if (chunk.type === 'text-delta') {
-          findingsMd += chunk.text;
-          send({ type: 'text', delta: chunk.text });
-        } else if (chunk.type === 'reasoning-delta') {
+      async onChunk({ chunk }) {
+        if (chunk.type === 'reasoning-delta') {
           reasoningBuffer += chunk.text;
           send({ type: 'reasoning', delta: chunk.text });
+        } else if (chunk.type === 'tool-input-start') {
+          if (chunk.toolName === 'emit_turn') {
+            emitInputId = chunk.id;
+            emitInputBuffer = '';
+            streamedFindings = '';
+          }
+        } else if (chunk.type === 'tool-input-delta') {
+          if (chunk.id !== emitInputId) return;
+          emitInputBuffer += chunk.delta;
+          const parsed = await parsePartialJson(emitInputBuffer);
+          const partial = parsed.value as { findings_md?: unknown } | undefined;
+          const findings = typeof partial?.findings_md === 'string' ? partial.findings_md : '';
+          if (findings.length > streamedFindings.length) {
+            const delta = findings.slice(streamedFindings.length);
+            streamedFindings = findings;
+            send({ type: 'text', delta });
+          }
         } else if (chunk.type === 'tool-call') {
           if (chunk.toolName === 'web_search') {
             toolCallsLog.push({ id: chunk.toolCallId, name: chunk.toolName, input: chunk.input });
@@ -147,7 +163,7 @@ export async function runDeepResearchTurnWorkflow(
 
     await completeTurn({
       turnId: input.turnId,
-      findingsMd,
+      findingsMd: turnOutput.findings_md,
       myReadMd: turnOutput.my_read_md,
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,

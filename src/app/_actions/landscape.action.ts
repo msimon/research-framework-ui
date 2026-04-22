@@ -1,5 +1,6 @@
 'use server';
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
 import { getOrCreateLandscape } from '@/server/domain/landscapes/landscapes.command';
@@ -31,17 +32,17 @@ export const triggerLandscapeAction = withAuth(async (userId: string, formData: 
     return { ok: true as const, landscapeId: landscape.id, alreadyRunning: true };
   }
 
-  try {
-    await runLandscapeWorkflow({
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    runLandscapeWorkflow({
       userId,
       subjectId: subject.id,
       topicSlug: topic.slug,
       landscapeId: landscape.id,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Landscape failed';
-    return { error: message };
-  }
+    }).catch((error) => {
+      console.error('[landscape] workflow failed', error);
+    }),
+  );
 
   return { ok: true as const, landscapeId: landscape.id };
 });

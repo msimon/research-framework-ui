@@ -22,8 +22,7 @@ export async function triggerFirstInterviewStep(userId: string, subjectId: strin
   return result.turn;
 }
 
-export async function answerAndAdvance(
-  userId: string,
+export async function saveInterviewAnswer(
   subjectId: string,
   params: { turnId: string; answer: string },
 ) {
@@ -33,6 +32,8 @@ export async function answerAndAdvance(
   if (latest.user_answer != null) throw new Error('This turn has already been answered');
 
   await saveInterviewTurnAnswer(latest.id, { text: params.answer });
-  const next = await runInitInterviewStep({ userId, subjectId });
-  return next;
+}
+
+export async function advanceInterview(userId: string, subjectId: string) {
+  return runInitInterviewStep({ userId, subjectId });
 }

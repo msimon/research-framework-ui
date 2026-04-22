@@ -1,5 +1,6 @@
 'use server';
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
 import { runDiscoverWorkflow } from '@/server/domain/discover/discover.workflow';
@@ -20,10 +21,16 @@ export const runDiscoverAction = withAuth(async (userId: string, formData: FormD
     return { error: parsed.error.issues[0]?.message ?? 'Invalid input' };
   }
 
-  const result = await runDiscoverWorkflow({
-    userId,
-    subjectId: parsed.data.subjectId,
-    narrowHint: parsed.data.hint,
-  });
-  return { ok: true as const, insertedCount: result.insertedCount };
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    runDiscoverWorkflow({
+      userId,
+      subjectId: parsed.data.subjectId,
+      narrowHint: parsed.data.hint,
+    }).catch((error) => {
+      console.error('[discover] workflow failed', error);
+    }),
+  );
+
+  return { ok: true as const };
 });

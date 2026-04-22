@@ -1,5 +1,6 @@
 'use server';
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
 import { closeSession, startSession, submitTurn } from '@/server/domain/deep-research/deep-research.command';
@@ -35,9 +36,12 @@ export const startSessionAction = withAuth(async (userId: string, formData: Form
     seedQuestion: parsed.data.seedQuestion,
   });
 
-  runDeepResearchTurnWorkflow({ userId, sessionId, turnId }).catch((error) => {
-    console.error('[deep-research] workflow failed (start)', error);
-  });
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    runDeepResearchTurnWorkflow({ userId, sessionId, turnId }).catch((error) => {
+      console.error('[deep-research] workflow failed (start)', error);
+    }),
+  );
 
   return { ok: true as const, sessionId, turnId, subjectSlug: subject.slug, topicSlug: topic.slug };
 });
@@ -62,9 +66,12 @@ export const submitTurnAction = withAuth(async (userId: string, formData: FormDa
     userText: parsed.data.userText,
   });
 
-  runDeepResearchTurnWorkflow({ userId, sessionId: parsed.data.sessionId, turnId }).catch((error) => {
-    console.error('[deep-research] workflow failed (submit)', error);
-  });
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    runDeepResearchTurnWorkflow({ userId, sessionId: parsed.data.sessionId, turnId }).catch((error) => {
+      console.error('[deep-research] workflow failed (submit)', error);
+    }),
+  );
 
   return { ok: true as const, turnId };
 });

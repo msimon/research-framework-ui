@@ -42,7 +42,7 @@ export function SubjectNewFormView() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="slugOverride">Folder slug (optional)</Label>
+        <Label htmlFor="slugOverride">Subject slug (optional)</Label>
         <Input
           id="slugOverride"
           name="slugOverride"

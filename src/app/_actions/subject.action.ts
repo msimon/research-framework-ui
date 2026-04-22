@@ -1,10 +1,12 @@
 'use server';
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import {
-  answerAndAdvance,
+  advanceInterview,
+  saveInterviewAnswer,
   triggerFirstInterviewStep,
 } from '@/server/domain/init-interview/init-interview.command';
 import { createSubjectDraft } from '@/server/domain/subjects/subjects.command';
@@ -29,7 +31,12 @@ export const createSubjectAction = withAuth(async (userId: string, formData: For
     slugOverride: parsed.data.slugOverride || null,
   });
 
-  await triggerFirstInterviewStep(userId, subject.id);
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    triggerFirstInterviewStep(userId, subject.id).catch((error) => {
+      console.error('[interview] first step failed', error);
+    }),
+  );
   redirect(`/subjects/new?id=${subject.id}`);
 });
 
@@ -48,9 +55,17 @@ export const answerInterviewAction = withAuth(async (userId: string, formData: F
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid input' };
   }
-  await answerAndAdvance(userId, parsed.data.subjectId, {
+  await saveInterviewAnswer(parsed.data.subjectId, {
     turnId: parsed.data.turnId,
     answer: parsed.data.answer,
   });
+
+  const { ctx } = getCloudflareContext();
+  ctx.waitUntil(
+    advanceInterview(userId, parsed.data.subjectId).catch((error) => {
+      console.error('[interview] advance failed', error);
+    }),
+  );
+
   return { ok: true as const };
 });
