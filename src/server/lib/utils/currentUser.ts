@@ -1,13 +1,27 @@
-import type { User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { cache } from 'react';
 import { supabaseUser } from '@/shared/lib/supabase/server';
 
-export const findCurrentUser = cache(async (): Promise<User | null> => {
-  const supabase = await supabaseUser();
-  const { data } = await supabase.auth.getUser();
+type CurrentAuth = { user: User; session: Session | null };
 
-  return data.user ?? null;
+export const findCurrentAuth = cache(async (): Promise<CurrentAuth | null> => {
+  const supabase = await supabaseUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return { user, session };
 });
+
+export async function findCurrentUser(): Promise<User | null> {
+  const auth = await findCurrentAuth();
+  return auth?.user ?? null;
+}
 
 export async function getCurrentUser(): Promise<User> {
   const user = await findCurrentUser();

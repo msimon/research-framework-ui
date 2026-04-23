@@ -15,11 +15,17 @@ export async function loadInterviewState(userId: string, subjectId: string) {
 export async function triggerFirstInterviewStep(userId: string, subjectId: string) {
   const existing = await findInterviewTurns(subjectId);
   if (existing.length > 0) return existing[existing.length - 1];
-  let result = await runInitInterviewStep({ userId, subjectId });
-  while (result.step.type === 'plan') {
-    result = await runInitInterviewStep({ userId, subjectId });
+
+  const planResult = await runInitInterviewStep({ userId, subjectId });
+  if (planResult.step.type !== 'plan') {
+    throw new Error('Expected plan step on first interview turn');
   }
-  return result.turn;
+
+  const next = await runInitInterviewStep({ userId, subjectId });
+  if (next.step.type === 'plan') {
+    throw new Error('Agent emitted a plan step after the initial plan');
+  }
+  return next.turn;
 }
 
 export async function saveInterviewAnswer(
