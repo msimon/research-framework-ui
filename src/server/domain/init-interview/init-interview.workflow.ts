@@ -11,6 +11,7 @@ import { getSubjectById } from '@/server/domain/subjects/subjects.repository';
 import { anthropicModel, anthropicProviderOptions } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 import type { Database, Json } from '@/shared/lib/supabase/supabase.types';
+import type { InterviewBroadcastEvent } from '@/shared/realtime/interview.events';
 
 type TurnRow = Database['public']['Tables']['init_interview_turns']['Row'];
 
@@ -53,11 +54,8 @@ export async function runInitInterviewStep(input: StepInterviewInput): Promise<S
         }
       });
     });
-    broadcast.send({
-      type: 'broadcast',
-      event: 'event',
-      payload: { subjectId: subject.id, type: 'thinking' },
-    });
+    const thinkingEvent: InterviewBroadcastEvent = { type: 'thinking', subjectId: subject.id };
+    broadcast.send({ type: 'broadcast', event: 'event', payload: thinkingEvent });
 
     const { object } = await generateObject({
       model: anthropicModel(),
@@ -78,29 +76,12 @@ export async function runInitInterviewStep(input: StepInterviewInput): Promise<S
       agentStep: step as unknown as Json,
     });
 
-    broadcast.send({
-      type: 'broadcast',
-      event: 'event',
-      payload: {
-        subjectId: subject.id,
-        turnId: turn.id,
-        turnNumber: nextTurnNumber,
-        type: 'step',
-        step,
-      },
-    });
-
     if (step.type === 'complete') {
       await finalizeSubject(subject.id, step.framing as unknown as Json, {
         research_brief_md: step.research_brief_md,
         lexicon_md: step.lexicon_md,
         open_questions_md: step.open_questions_md,
         title: step.title,
-      });
-      broadcast.send({
-        type: 'broadcast',
-        event: 'event',
-        payload: { subjectId: subject.id, turnId: turn.id, type: 'complete' },
       });
     }
 

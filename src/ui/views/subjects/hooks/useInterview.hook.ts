@@ -1,10 +1,12 @@
 'use client';
 
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import type { AgentStep } from '@/prompts/init-subject/init-subject.schema';
 import { supabaseClient } from '@/shared/lib/supabase/client';
+import type { InterviewBroadcastEvent } from '@/shared/realtime/interview.events';
 
 export type InterviewTurn = {
   id: string;
@@ -33,29 +35,27 @@ export function useInterview({ subjectId, subjectSlug, initialTurns, initialStat
 
     const liveChannel = supabaseClient
       .channel(`interview:${subjectId}`, { config: { private: true } })
-      .on('broadcast', { event: 'event' }, ({ payload }: { payload: { type?: string } }) => {
+      .on('broadcast', { event: 'event' }, ({ payload }: { payload: InterviewBroadcastEvent }) => {
         console.log('[rt:broadcast]', payload);
-        if (payload?.type === 'thinking') setThinking(true);
-        if (payload?.type === 'step') setThinking(false);
-        if (payload?.type === 'complete') setThinking(false);
+        if (payload.type === 'thinking') setThinking(true);
       })
       .subscribe((s, err) => console.log('[rt:broadcast] status', s, err ?? ''));
 
     const turnsChannel = supabaseClient
       .channel(`turns:interview:${subjectId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'init_interview_turns',
           filter: `subject_id=eq.${subjectId}`,
         },
-        (payload: { eventType?: string; new: InterviewTurn | null; old?: unknown }) => {
+        (payload: RealtimePostgresChangesPayload<InterviewTurn>) => {
           console.log('[rt:turns] event', payload.eventType, payload);
+          if (payload.eventType === 'INSERT') setThinking(false);
+          if (payload.eventType === 'DELETE') return;
           const row = payload.new;
-          if (!row) return;
           setTurns((prev) => {
             const next = prev.filter((t) => t.id !== row.id);
             next.push(row);
@@ -69,17 +69,17 @@ export function useInterview({ subjectId, subjectSlug, initialTurns, initialStat
     const subjectChannel = supabaseClient
       .channel(`subject-status:${subjectId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'subjects',
           filter: `id=eq.${subjectId}`,
         },
-        (payload: { new: { status?: string } }) => {
+        (payload: RealtimePostgresChangesPayload<{ status: string }>) => {
           console.log('[rt:subject] event', payload);
-          const nextStatus = payload.new?.status;
+          if (payload.eventType !== 'UPDATE') return;
+          const nextStatus = payload.new.status;
           if (nextStatus) setStatus(nextStatus);
         },
       )

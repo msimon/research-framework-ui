@@ -260,6 +260,8 @@ Single transport for live agent output: **broadcast channel during the run + pos
 - **Every event carries a child id** (`turnId`, `topicId`, `landscapeId`) plus a monotonic `seq` so the client can route + detect gaps.
 - **If the client drops mid-turn**, Realtime auto-reconnects; events in the gap are lost (ephemeral by design). The durable state lands via `postgres_changes` regardless.
 - **Client composes two subscriptions** per entity page: one `broadcast` channel for live deltas, one `postgres_changes` subscription on the durable table filtered by entity id.
+- **Broadcast channels default to `private: true`.** Construct with `{ config: { private: true } }` on both server sender and client subscriber, paired with a matching RLS policy on `realtime.messages` keyed off `realtime.topic()`. Public broadcasts are allowed only when the payload is already public by design (no per-user data) and the team has explicitly agreed to it.
+- **Typed `postgres_changes` callbacks must use `RealtimePostgresChangesPayload<T>`** from `@supabase/supabase-js`. Never hand-roll the payload shape — it drifts from the library's contract (notably around `new` / `old` / `eventType` discrimination).
 
 ## Prompts Directory
 
@@ -404,6 +406,11 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 - New tables include `created_at` / `updated_at` TIMESTAMPTZ with `set_updated_at` / `moddatetime` trigger attached
 - User-owned tables have RLS enabled and a policy keyed on `auth.uid()`, with indexes on the columns the policy references
 - Migration edits target only uncommitted files (`git log --oneline -- <file>` empty). Any change to a committed migration is a new migration instead.
+
+### Realtime
+
+- Broadcast channels are `{ config: { private: true } }` by default on both sender and subscriber, with a matching RLS policy on `realtime.messages`. Public only when the use case explicitly requires it.
+- `postgres_changes` callbacks are typed with `RealtimePostgresChangesPayload<T>` from `@supabase/supabase-js`, not hand-rolled payload shapes.
 
 ### Prompts
 
