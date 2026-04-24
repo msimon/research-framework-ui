@@ -133,3 +133,20 @@ ALTER TABLE public.subjects REPLICA IDENTITY FULL;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.init_interview_turns;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.subjects;
+
+-- Realtime: authorize private broadcast on interview:<subject_id> topics.
+-- Sender is the server (service role bypasses RLS), so only a SELECT policy is needed.
+DROP POLICY IF EXISTS "Users receive own interview broadcasts" ON realtime.messages;
+CREATE POLICY "Users receive own interview broadcasts"
+ON realtime.messages
+FOR SELECT
+TO authenticated
+USING (
+  extension = 'broadcast'
+  AND split_part(realtime.topic(), ':', 1) = 'interview'
+  AND EXISTS (
+    SELECT 1 FROM public.subjects s
+    WHERE s.id = split_part(realtime.topic(), ':', 2)::uuid
+      AND s.user_id = (select auth.uid())
+  )
+);

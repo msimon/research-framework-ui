@@ -42,7 +42,7 @@ export async function runInitInterviewStep(input: StepInterviewInput): Promise<S
 
   const channel: EntityChannelName = `interview:${subject.id}`;
   const client = supabaseBroadcastClient();
-  const broadcast = client.channel(channel);
+  const broadcast = client.channel(channel, { config: { private: true } });
 
   try {
     await new Promise<void>((resolve, reject) => {

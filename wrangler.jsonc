@@ -4,25 +4,26 @@
   "name": "research-framework-ui",
   "compatibility_date": "2025-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  },
-  "observability": {
-    "enabled": true
-  },
-  "limits": {
-    "cpu_ms": 300000
-  },
-  "vars": {
-    "APP_ENV": "production"
-  },
 
   "env": {
+    "production": {
+      "name": "research-framework-ui",
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      },
+      "observability": {
+        "enabled": true
+      },
+      "limits": {
+        "cpu_ms": 300000
+      },
+      "vars": {
+        "APP_ENV": "production"
+      }
+    },
     "staging": {
       "name": "research-framework-ui-staging",
-      "compatibility_date": "2025-10-01",
-      "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
       "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS"

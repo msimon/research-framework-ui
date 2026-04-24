@@ -14,6 +14,16 @@ user-invocable: false
 4. Apply the migrations: `npm run db:migration:up`
 5. Regenerate the types: `npm run db:types:generate`
 
+## Editing vs creating migrations
+
+**Default: always create a new migration file.** Once a migration is committed to git, it is immutable — applied remotes (staging, prod) have it recorded in `schema_migrations` and editing it causes history divergence that requires painful repair.
+
+**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` as modified/untracked (not yet committed), edit it in place and run `npm run db:reset` to re-apply from scratch. This keeps the history clean before the migration reaches any remote.
+
+Decision rule:
+- `git log --oneline -- supabase/migrations/<file>` returns nothing → file is uncommitted → edit + `db:reset` is fine.
+- Otherwise → create a new migration file with `npm run db:migration:new`.
+
 ## Table conventions
 
 - Always include `created_at` and `updated_at` fields and add the trigger for `updated_at`.

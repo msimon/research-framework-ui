@@ -345,6 +345,20 @@ Miniflare simulates Workers and Workflows locally — **no Cloudflare account ne
 3. `npm run db:types:generate` — regenerate `src/shared/lib/supabase/supabase.types.ts`
 4. Commit migration + types together
 
+### Editing vs creating migrations
+
+**Default: always create a new migration file** via `npm run db:migration:new`. Once a migration is committed to git, treat it as immutable — staging/prod record it in `schema_migrations` and editing it causes history divergence that requires `supabase migration repair` to reconcile.
+
+**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` (modified or untracked, not yet committed), edit it in place and run `npm run db:reset`. The migration hasn't reached any remote, so iterating on it in-place is safe.
+
+Decision rule:
+
+```
+git log --oneline -- supabase/migrations/<file>
+# empty output → uncommitted → edit + db:reset
+# has commits → committed → create new migration
+```
+
 ### Rebasing with remote schema
 
 - No conflicts → `npm run db:migration:up`
@@ -389,6 +403,7 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 - Most fields are `NOT NULL` with defaults; only nullable when genuinely optional in the business logic (booleans default, arrays `'{}'`, avoid meaningless `''` defaults)
 - New tables include `created_at` / `updated_at` TIMESTAMPTZ with `set_updated_at` / `moddatetime` trigger attached
 - User-owned tables have RLS enabled and a policy keyed on `auth.uid()`, with indexes on the columns the policy references
+- Migration edits target only uncommitted files (`git log --oneline -- <file>` empty). Any change to a committed migration is a new migration instead.
 
 ### Prompts
 

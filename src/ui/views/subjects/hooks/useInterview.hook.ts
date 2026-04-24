@@ -32,7 +32,7 @@ export function useInterview({ subjectId, subjectSlug, initialTurns, initialStat
     console.log('[rt] mounting subscriptions for subject', subjectId);
 
     const liveChannel = supabaseClient
-      .channel(`interview:${subjectId}`)
+      .channel(`interview:${subjectId}`, { config: { private: true } })
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: { type?: string } }) => {
         console.log('[rt:broadcast]', payload);
         if (payload?.type === 'thinking') setThinking(true);
