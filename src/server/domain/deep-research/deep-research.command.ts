@@ -221,7 +221,7 @@ export async function runDeepResearchTurn(
 
   const channel: EntityChannelName = `session:${input.sessionId}`;
   const client = supabaseBroadcastClient();
-  const broadcast = client.channel(channel);
+  const broadcast = client.channel(channel, { config: { private: true } });
   let seq = 0;
 
   const send = (payload: Record<string, unknown>) => {

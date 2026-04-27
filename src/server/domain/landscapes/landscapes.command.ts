@@ -56,7 +56,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
 
   const channel: EntityChannelName = `landscape:${input.landscapeId}`;
   const client = supabaseBroadcastClient();
-  const broadcast = client.channel(channel);
+  const broadcast = client.channel(channel, { config: { private: true } });
   let seq = 0;
 
   const send = (payload: Record<string, unknown>) => {

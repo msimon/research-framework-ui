@@ -1,5 +1,6 @@
 'use client';
 
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -61,7 +62,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     if (!landscapeId) return;
 
     const channel = supabaseClient
-      .channel(`landscape:${landscapeId}`)
+      .channel(`landscape:${landscapeId}`, { config: { private: true } })
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: LandscapeEvent }) => {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         switch (payload.type) {
@@ -106,18 +107,18 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     const rows = supabaseClient
       .channel(`landscapes:row:${landscapeId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'landscapes',
           filter: `id=eq.${landscapeId}`,
         },
-        (payload: { new: LandscapeState | null }) => {
-          if (!payload.new) return;
-          setLandscape(payload.new);
-          if (payload.new.status === 'complete' || payload.new.status === 'failed') {
+        (payload: RealtimePostgresChangesPayload<LandscapeState>) => {
+          if (payload.eventType !== 'UPDATE') return;
+          const next = payload.new;
+          setLandscape(next);
+          if (next.status === 'complete' || next.status === 'failed') {
             setStreaming(false);
           }
         },
@@ -135,17 +136,17 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     const rows = supabaseClient
       .channel(`sources:topic:${topicSlug}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'sources',
           filter: `landscape_id=eq.${landscapeId}`,
         },
-        (payload: { new: SourceItem | null }) => {
-          if (!payload.new) return;
-          setSources((prev) => (prev.some((s) => s.id === payload.new?.id) ? prev : [...prev, payload.new!]));
+        (payload: RealtimePostgresChangesPayload<SourceItem>) => {
+          if (payload.eventType !== 'INSERT') return;
+          const next = payload.new;
+          setSources((prev) => (prev.some((s) => s.id === next.id) ? prev : [...prev, next]));
         },
       )
       .subscribe();

@@ -1,5 +1,6 @@
 'use client';
 
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { runDiscoverAction } from '@/app/_actions/discover.action';
@@ -37,7 +38,7 @@ export function useTopicsSection({ subjectId, initialTopics }: Args) {
 
   useEffect(() => {
     const broadcast = supabaseClient
-      .channel(`subject:${subjectId}`)
+      .channel(`subject:${subjectId}`, { config: { private: true } })
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: { type?: string } }) => {
         if (payload?.type === 'discover:thinking') setThinking(true);
         if (payload?.type === 'discover:complete') setThinking(false);
@@ -47,17 +48,16 @@ export function useTopicsSection({ subjectId, initialTopics }: Args) {
     const rows = supabaseClient
       .channel(`topics:subject:${subjectId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'topics',
           filter: `subject_id=eq.${subjectId}`,
         },
-        (payload: { new: TopicsSectionTopic | null }) => {
+        (payload: RealtimePostgresChangesPayload<TopicsSectionTopic>) => {
+          if (payload.eventType !== 'INSERT') return;
           const row = payload.new;
-          if (!row) return;
           setTopics((prev) => {
             if (prev.some((t) => t.id === row.id)) return prev;
             return [...prev, row];
@@ -65,17 +65,16 @@ export function useTopicsSection({ subjectId, initialTopics }: Args) {
         },
       )
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'topics',
           filter: `subject_id=eq.${subjectId}`,
         },
-        (payload: { new: TopicsSectionTopic | null }) => {
+        (payload: RealtimePostgresChangesPayload<TopicsSectionTopic>) => {
+          if (payload.eventType !== 'UPDATE') return;
           const row = payload.new;
-          if (!row) return;
           setTopics((prev) => prev.map((t) => (t.id === row.id ? row : t)));
         },
       )

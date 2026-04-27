@@ -1,5 +1,6 @@
 'use client';
 
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
@@ -64,7 +65,7 @@ export function useDeepResearchSession(args: Args) {
 
   useEffect(() => {
     const channel = supabaseClient
-      .channel(`session:${args.sessionId}`)
+      .channel(`session:${args.sessionId}`, { config: { private: true } })
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: BroadcastPayload }) => {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
@@ -117,16 +118,15 @@ export function useDeepResearchSession(args: Args) {
     const rows = supabaseClient
       .channel(`deep_research_turns:session:${args.sessionId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'deep_research_turns',
           filter: `session_id=eq.${args.sessionId}`,
         },
-        (payload: { new: DeepResearchTurnState | null; eventType: string }) => {
-          if (!payload.new) return;
+        (payload: RealtimePostgresChangesPayload<DeepResearchTurnState>) => {
+          if (payload.eventType === 'DELETE') return;
           const next = payload.new;
           setTurns((prev) => {
             const idx = prev.findIndex((t) => t.id === next.id);
@@ -148,16 +148,15 @@ export function useDeepResearchSession(args: Args) {
     const sessionRow = supabaseClient
       .channel(`deep_research_sessions:row:${args.sessionId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'deep_research_sessions',
           filter: `id=eq.${args.sessionId}`,
         },
-        (payload: { new: { status: string } | null }) => {
-          if (!payload.new) return;
+        (payload: RealtimePostgresChangesPayload<{ status: string }>) => {
+          if (payload.eventType !== 'UPDATE') return;
           setSessionStatus(payload.new.status);
         },
       )
@@ -172,16 +171,15 @@ export function useDeepResearchSession(args: Args) {
     const subjectRow = supabaseClient
       .channel(`subjects:row:${args.subjectId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'subjects',
           filter: `id=eq.${args.subjectId}`,
         },
-        (payload: { new: { lexicon_md: string } | null }) => {
-          if (!payload.new) return;
+        (payload: RealtimePostgresChangesPayload<{ lexicon_md: string }>) => {
+          if (payload.eventType !== 'UPDATE') return;
           setLexiconMd(payload.new.lexicon_md);
         },
       )
@@ -196,17 +194,17 @@ export function useDeepResearchSession(args: Args) {
     const src = supabaseClient
       .channel(`sources:session:${args.sessionId}`)
       .on(
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase channel generic is awkward for postgres_changes
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'sources',
           filter: `session_id=eq.${args.sessionId}`,
         },
-        (payload: { new: DeepResearchSourceState | null }) => {
-          if (!payload.new) return;
-          setSources((prev) => (prev.some((s) => s.id === payload.new?.id) ? prev : [...prev, payload.new!]));
+        (payload: RealtimePostgresChangesPayload<DeepResearchSourceState>) => {
+          if (payload.eventType !== 'INSERT') return;
+          const next = payload.new;
+          setSources((prev) => (prev.some((s) => s.id === next.id) ? prev : [...prev, next]));
         },
       )
       .subscribe();

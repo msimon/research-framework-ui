@@ -34,7 +34,7 @@ export async function runDiscover(input: RunDiscoverInput): Promise<RunDiscoverR
 
   const channel: EntityChannelName = `subject:${subject.id}`;
   const client = supabaseBroadcastClient();
-  const broadcast = client.channel(channel);
+  const broadcast = client.channel(channel, { config: { private: true } });
 
   try {
     await new Promise<void>((resolve, reject) => {
