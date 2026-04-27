@@ -234,6 +234,7 @@ export type Database = {
           id: string
           landscape_id: string | null
           retrieved_at: string
+          session_id: string | null
           snippet: string | null
           title: string | null
           topic_id: string
@@ -246,6 +247,7 @@ export type Database = {
           id?: string
           landscape_id?: string | null
           retrieved_at?: string
+          session_id?: string | null
           snippet?: string | null
           title?: string | null
           topic_id: string
@@ -258,6 +260,7 @@ export type Database = {
           id?: string
           landscape_id?: string | null
           retrieved_at?: string
+          session_id?: string | null
           snippet?: string | null
           title?: string | null
           topic_id?: string
@@ -271,6 +274,13 @@ export type Database = {
             columns: ["landscape_id"]
             isOneToOne: false
             referencedRelation: "landscapes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "deep_research_sessions"
             referencedColumns: ["id"]
           },
           {

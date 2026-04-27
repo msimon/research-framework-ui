@@ -356,6 +356,7 @@ export async function runDeepResearchTurn(
         turnOutput.sources.map((s) => ({
           topic_id: topic.id,
           turn_id: input.turnId,
+          session_id: input.sessionId,
           landscape_id: null,
           url: s.url,
           title: s.title ?? null,

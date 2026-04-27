@@ -15,7 +15,7 @@ const SESSION_COLUMNS =
 const TURN_COLUMNS =
   'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
 const SOURCE_COLUMNS =
-  'id, topic_id, landscape_id, turn_id, url, title, snippet, retrieved_at, created_at, updated_at';
+  'id, topic_id, landscape_id, turn_id, session_id, url, title, snippet, retrieved_at, created_at, updated_at';
 
 export async function findSessionById(sessionId: string): Promise<SessionRow | null> {
   const supabase = await supabaseUser();
@@ -79,19 +79,10 @@ export async function listTurnsForSession(sessionId: string): Promise<TurnRow[]>
 
 export async function listSourcesForSession(sessionId: string): Promise<SourceRow[]> {
   const supabase = await supabaseUser();
-  const { data: turns, error: turnsError } = await supabase
-    .from('deep_research_turns')
-    .select('id')
-    .eq('session_id', sessionId);
-  if (turnsError) throw new Error(`Failed to load turn ids: ${turnsError.message}`);
-
-  const turnIds = (turns ?? []).map((t) => t.id);
-  if (turnIds.length === 0) return [];
-
   const { data, error } = await supabase
     .from('sources')
     .select(SOURCE_COLUMNS)
-    .in('turn_id', turnIds)
+    .eq('session_id', sessionId)
     .order('retrieved_at', { ascending: true });
 
   if (error) throw new Error(`Failed to load session sources: ${error.message}`);

@@ -202,16 +202,10 @@ export function useDeepResearchSession(args: Args) {
           event: 'INSERT',
           schema: 'public',
           table: 'sources',
+          filter: `session_id=eq.${args.sessionId}`,
         },
         (payload: { new: DeepResearchSourceState | null }) => {
-          if (!payload.new || !payload.new.turn_id) return;
-          const knownTurn = args.initialTurns.some((t) => t.id === payload.new?.turn_id);
-          if (!knownTurn) {
-            setSources((prev) =>
-              prev.some((s) => s.id === payload.new?.id) ? prev : [...prev, payload.new!],
-            );
-            return;
-          }
+          if (!payload.new) return;
           setSources((prev) => (prev.some((s) => s.id === payload.new?.id) ? prev : [...prev, payload.new!]));
         },
       )
@@ -220,7 +214,7 @@ export function useDeepResearchSession(args: Args) {
     return () => {
       supabaseClient.removeChannel(src);
     };
-  }, [args.sessionId, args.initialTurns]);
+  }, [args.sessionId]);
 
   function submit(userText: string) {
     const trimmed = userText.trim();
