@@ -5,7 +5,7 @@
     "at-rule-no-unknown": [
       true,
       {
-        "ignoreAtRules": ["theme", "variant", "utility", "custom-variant"]
+        "ignoreAtRules": ["theme", "variant", "utility", "custom-variant", "plugin"]
       }
     ]
   }

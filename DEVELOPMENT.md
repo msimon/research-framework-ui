@@ -7,8 +7,8 @@ Clean Architecture over Next.js 16 + Supabase + Cloudflare. See `PLAN.md` for pr
 1. Entry points (`app/`) delegate to commands (`server/domain/`) — never contain business logic
 2. Commands never call other commands; repositories never call other repositories
 3. Vendor/external integrations go in `src/server/infra/*`, not `domain/`
-4. Cloudflare Workflows live in `workers/` and are the sole runtime for long-running agent work
-5. Use file suffixes: `.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.view.tsx`, `.dto.ts`, `.prompt.ts`, `.workflow.ts`
+4. Long-running agent work currently runs as exported functions inside `*.command.ts`, invoked via `ctx.waitUntil` from server actions. Migration to real Cloudflare Workflows under `workers/` is planned future work, not current state.
+5. Use file suffixes: `.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.view.tsx`, `.dto.ts`, `.prompt.ts`
 6. Imports always use `@/` alias — no relative paths
 7. `process.env` is only read inside `src/shared/config/*`
 8. No `SELECT *` — select explicit fields for type safety and RLS compatibility
@@ -25,14 +25,13 @@ Clean Architecture over Next.js 16 + Supabase + Cloudflare. See `PLAN.md` for pr
 src/
 ├── app/                            # Next.js App Router — entry points only
 │   ├── _actions/                   # Server Actions ('use server')
-│   ├── api/                        # Route handlers (trigger workflows, small reads)
+│   ├── api/                        # Route handlers (small reads, external callbacks)
 │   ├── auth/                       # OAuth callback + sign-out
 │   ├── (app)/                      # Authed layout + routes
 │   └── page.tsx                    # Landing (redirects to /subjects if signed in)
 ├── server/
 │   ├── domain/{feature}/           # Business logic
 │   │   ├── {feature}.command.ts    # Public entry points called by actions/routes
-│   │   ├── {feature}.execution.ts  # Optional: extracted internal workflows
 │   │   └── {feature}.repository.ts # Data access for these commands
 │   ├── infra/                      # Vendor adapters (cloudflare, anthropic, ...)
 │   │   └── {service}/{service}.service.ts
@@ -46,14 +45,14 @@ src/
 │   └── lib/supabase/               # client.ts, server.ts, proxy.ts, supabase.types.ts
 ├── prompts/{skill}/                # Ported rf skill: {skill}.prompt.ts + {skill}.schema.ts
 └── middleware.ts                   # Next.js edge middleware (refresh Supabase session)
-workers/                            # Cloudflare Workflow classes (e.g. DeepResearchTurnWorkflow)
 supabase/                           # config.toml, migrations/, seed.sql
 ```
 
+`workers/` (Cloudflare Workflow classes) is reserved for future migration but does not exist today — see the agent runtime section below.
+
 ## Domain Layer Rules
 
-- **Commands**: execute business operations, coordinate repositories and services. Commands **never** call other commands (but may call repositories from other domains).
-- **Execution files** (optional): internal workflows extracted from commands for clarity/reuse. Commands remain the public entry points.
+- **Commands**: execute business operations, coordinate repositories and services. Commands **never** call other commands (but may call repositories from other domains). Long-running agent work (e.g. interview turns, discover, landscape, deep-research) lives as exported functions inside `*.command.ts` and is invoked from server actions via `ctx.waitUntil(...)`.
 - **Repositories**: data access scoped to a command. Never call other repositories.
   - `get${Name}()` throws when not found; `find${Name}()` returns `null`.
   - Order inside a repository file: Find/Get → Create → Update/Upsert → Delete.
@@ -91,7 +90,6 @@ conversation.service.ts      External integrations
 conversation.schema.ts       Zod schemas + inferred types (pure contract)
 conversation.dto.ts          API request/response types
 conversation.prompt.ts       LLM system prompt text only (no schemas, no logic)
-conversation.workflow.ts     Cloudflare Workflow class
 conversation.view.tsx        Feature views
 useSomething.hook.ts         React hooks
 message.types.ts             TypeScript types
@@ -201,62 +199,54 @@ Protected pages should read the user via `findCurrentUser()` (returns `null`) or
 
 Don't create a server action that just passes through to a repository — call the repo from the page.
 
-## Cloudflare Workflows — Agent Runtime
+## Agent Runtime
 
-All long-running agent work (interview turns, discover, landscape, deep-research turns) runs as a Cloudflare Workflow. One uniform primitive — no Durable Objects, no direct server-action-runs-the-LLM.
+Long-running agent work (interview turns, discover, landscape, deep-research turns) currently runs as exported functions inside `*.command.ts`. Server actions trigger them via `ctx.waitUntil(...)` and return the entity id (e.g. `turnId`) synchronously so the client can subscribe to the broadcast channel. The function streams events on Supabase Realtime as it runs and persists final state to the DB on completion.
 
-### Why Workflows
-
-- Durable state survives restarts/deploys (each `step.do` checkpoint is cached).
-- One runtime for every skill → one mental model.
-- Event streaming stays decoupled from the HTTP response — the route handler returns immediately with a `turnId`, the workflow does the work, the client listens on a Supabase channel.
+Migration to real Cloudflare Workflows under `workers/` (one `WorkflowEntrypoint` class per skill) is planned but deferred — there is no `workers/` directory today.
 
 ### Pattern
 
 ```ts
-// workers/deep-research-turn.workflow.ts
-export class DeepResearchTurnWorkflow extends WorkflowEntrypoint<Env, TurnParams> {
-  async run(event: WorkflowEvent<TurnParams>, step: WorkflowStep) {
-    const { turnId, sessionId, userText } = event.payload;
+// src/server/domain/deep-research/deep-research.command.ts
+export async function runDeepResearchTurn({ turnId, sessionId, userText }: RunTurnParams) {
+  const supabase = supabaseAdmin();
+  // Validate ownership before any write — supabaseAdmin() bypasses RLS.
+  await assertSessionOwnedByCaller(supabase, sessionId);
 
-    const messages = await step.do('load-context', () => loadTurnContext(sessionId));
+  const messages = await loadTurnContext(sessionId);
+  const channel = supabase.channel(`session:${sessionId}`);
+  let seq = 0;
 
-    await step.do('agent-loop', async () => {
-      const supabase = supabaseAdmin();
-      const channel = supabase.channel(`session:${sessionId}`);
-      let seq = 0;
+  const result = streamText({
+    model: anthropic('claude-opus-4-7'),
+    providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 8000 } } },
+    tools: { web_search },
+    messages,
+    onChunk: ({ chunk }) => {
+      const ev = toTurnEvent(chunk, { turnId, seq: seq++ });
+      if (ev) channel.send({ type: 'broadcast', event: 'event', payload: ev });
+    },
+  });
 
-      const result = streamText({
-        model: anthropic('claude-opus-4-7'),
-        providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 8000 } } },
-        tools: { web_search },
-        messages,
-        onChunk: ({ chunk }) => {
-          const ev = toTurnEvent(chunk, { turnId, seq: seq++ });
-          if (ev) channel.send({ type: 'broadcast', event: 'event', payload: ev });
-        },
-      });
-
-      const { text, reasoning, toolCalls } = await result.response;
-      await persistTurn({ turnId, text, reasoning, toolCalls });
-      channel.send({ type: 'broadcast', event: 'event', payload: { turnId, seq: seq++, type: 'complete' } });
-    });
-  }
+  const { text, reasoning, toolCalls } = await result.response;
+  await persistTurn({ turnId, text, reasoning, toolCalls });
+  channel.send({ type: 'broadcast', event: 'event', payload: { turnId, seq: seq++, type: 'complete' } });
 }
 ```
 
 ### Rules
 
-- One workflow class per skill. Bind in `wrangler.jsonc`, trigger via a route handler.
-- Workflows are **idempotent per step** — wrap any externally-visible side effect (DB write, LLM call) in `step.do(...)`.
+- Server actions trigger the function via `ctx.waitUntil(runX(...))` and return the entity id immediately. They do not block on LLM output.
+- Externally-visible side effects (DB writes, LLM calls) should be idempotent where possible — even though we have no `step.do` checkpointing today, a future migration to Workflows will require it.
 - Broadcast during the run; durable write on completion. Never rely on broadcast for durability.
-- Workflows use `supabaseAdmin()` (no user cookies inside a worker). Always validate `user_id` matches the owning entity before writing.
+- Agent functions use `supabaseAdmin()` (the request cookie is gone once `waitUntil` detaches). Always validate `user_id` matches the owning entity before writing.
 
 ## Supabase Realtime — Streaming Convention
 
 Single transport for live agent output: **broadcast channel during the run + postgres_changes on completion**.
 
-- **Channels are entity-scoped, long-lived.** Subscribe once on page mount — never per turn. Never per workflow-run. See `PLAN.md §3` for the channel naming table.
+- **Channels are entity-scoped, long-lived.** Subscribe once on page mount — never per turn. Never per agent run. See `PLAN.md §3` for the channel naming table.
 - **Every event carries a child id** (`turnId`, `topicId`, `landscapeId`) plus a monotonic `seq` so the client can route + detect gaps.
 - **If the client drops mid-turn**, Realtime auto-reconnects; events in the gap are lost (ephemeral by design). The durable state lands via `postgres_changes` regardless.
 - **Client composes two subscriptions** per entity page: one `broadcast` channel for live deltas, one `postgres_changes` subscription on the durable table filtered by entity id.
@@ -275,12 +265,12 @@ Each rf skill in `/Users/marc/programing/perso/research-framwork/skills/*/SKILL.
 
 ### `.schema.ts` — structured-output contract
 
-- Zod schemas + the types inferred from them (e.g. `agentStepSchema`, `AgentStep`). Imported by both the caller (workflow/command) and any UI that renders the structured output.
+- Zod schemas + the types inferred from them (e.g. `agentStepSchema`, `AgentStep`). Imported by both the caller (the command) and any UI that renders the structured output.
 - Pure — no I/O, no prompt text, no message construction.
 
 ### Message construction lives at the call site
 
-Building `messages: CoreMessage[]` is domain logic: it pulls in entity state, history, per-turn context. That goes in the caller — typically the `.workflow.ts` or `.command.ts` that invokes the LLM. Do **not** put a `buildXxxMessages` function inside `.prompt.ts` or `.schema.ts`.
+Building `messages: CoreMessage[]` is domain logic: it pulls in entity state, history, per-turn context. That goes in the caller — the `.command.ts` that invokes the LLM. Do **not** put a `buildXxxMessages` function inside `.prompt.ts` or `.schema.ts`.
 
 ## When to Add a Server Action vs API Route
 
@@ -291,7 +281,7 @@ Building `messages: CoreMessage[]` is domain logic: it pulls in entity state, hi
 
 - **shadcn/ui** primitives under `src/ui/components/ui/*`. Install new ones with `npx shadcn@latest add <component>`.
 - **Colors in OKLCH**, defined in `src/ui/css/colors.css` + `globals.css`. Use named Tailwind classes (`bg-ink-10`, `text-blue-70`) — never hex literals.
-- Design tokens will be regenerated via the `gstack-design-*` skills during Milestone 5. The current palette is placeholder.
+- Design tokens will be regenerated during Milestone 5. The current palette is placeholder.
 
 ## Database
 
@@ -376,7 +366,7 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 
 ### Architecture
 
-- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.workflow.ts`, `.view.tsx`, etc.)
+- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.view.tsx`, etc.)
 - Imports use `@/` alias — no relative paths or `src/` prefixes
 - No namespace imports (`import * as X from …`); named exports only for shared modules. Exception: vendored shadcn/ui components may keep their upstream `import * as React` / `import * as RadixX` form.
 - Commands don't call other commands
@@ -416,11 +406,13 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 
 - `.prompt.ts` exports only `const` strings — no Zod, no helpers, no types, no message builders
 - `.schema.ts` is pure — no I/O, no prompt text, no message construction
-- Message construction (`messages: CoreMessage[]`) lives at the call site (`.workflow.ts` / `.command.ts`), not in `.prompt.ts` or `.schema.ts`
+- Message construction (`messages: CoreMessage[]`) lives at the call site (`.command.ts`), not in `.prompt.ts` or `.schema.ts`
 
-### Workflows
+### Agent runtime
 
-- Workflows are idempotent per step — externally visible side effects (DB writes, LLM calls) wrapped in `step.do(...)`
+- Long-running agent work is exported from `*.command.ts` and triggered from server actions via `ctx.waitUntil(...)`. The action returns the entity id immediately; it does not block on LLM output.
+- Agent functions use `supabaseAdmin()` and validate `user_id` against the owning entity before any write.
+- Broadcast during the run; durable write on completion. Never rely on broadcast for durability.
 
 ### UI
 

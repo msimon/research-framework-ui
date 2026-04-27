@@ -12,18 +12,18 @@ import {
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 
-export type DiscoverInput = {
+export type RunDiscoverInput = {
   userId: string;
   subjectId: string;
   narrowHint?: string;
 };
 
-export type DiscoverResult = {
+export type RunDiscoverResult = {
   insertedCount: number;
   subjectSlug: string;
 };
 
-export async function runDiscoverWorkflow(input: DiscoverInput): Promise<DiscoverResult> {
+export async function runDiscover(input: RunDiscoverInput): Promise<RunDiscoverResult> {
   const subject = await getSubjectById(input.userId, input.subjectId);
   if (subject.status !== 'ready') {
     throw new Error(`Subject ${subject.slug} is not in ready state (status: ${subject.status})`);

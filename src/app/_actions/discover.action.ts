@@ -3,7 +3,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
-import { runDiscoverWorkflow } from '@/server/domain/discover/discover.workflow';
+import { runDiscover } from '@/server/domain/discover/discover.command';
 import { withAuth } from '@/server/lib/utils/auth';
 
 const discoverSchema = z.object({
@@ -23,7 +23,7 @@ export const runDiscoverAction = withAuth(async (userId: string, formData: FormD
 
   const { ctx } = getCloudflareContext();
   ctx.waitUntil(
-    runDiscoverWorkflow({
+    runDiscover({
       userId,
       subjectId: parsed.data.subjectId,
       narrowHint: parsed.data.hint,

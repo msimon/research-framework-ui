@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {

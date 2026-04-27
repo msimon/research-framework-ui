@@ -1,6 +1,6 @@
 # Project Context
 
-- **Stack:** Next.js 16 (App Router, React 19, Turbopack), Supabase (Postgres + Auth + Realtime), Cloudflare Workers via `@opennextjs/cloudflare`, Cloudflare Workflows, Vercel AI SDK + Anthropic (Claude Opus 4.7), shadcn/ui + Tailwind, Biome, Zod
+- **Stack:** Next.js 16 (App Router, React 19, Turbopack), Supabase (Postgres + Auth + Realtime), Cloudflare Workers via `@opennextjs/cloudflare`, Vercel AI SDK + Anthropic (Claude Opus 4.7), shadcn/ui + Tailwind, Biome, Zod
 - **Package manager:** npm (never yarn)
 - **Lint & format:** `npm run check:fix` (Biome)
 - **Tests:** deferred for MVP
@@ -56,7 +56,7 @@
 
 ## Required reading
 
-- `DEVELOPMENT.md` — all rules that apply to engineers apply to you. Key sections for code review: **Domain Layer Rules**, **Import Conventions**, **Naming Conventions**, **Cloudflare Workflows**, **Supabase Realtime — Streaming Convention**, **Supabase Client Selection**, and **Database Table Design Rules**.
+- `DEVELOPMENT.md` — all rules that apply to engineers apply to you. Key sections for code review: **Domain Layer Rules**, **Import Conventions**, **Naming Conventions**, **Supabase Realtime — Streaming Convention**, **Supabase Client Selection**, and **Database Table Design Rules**.
 - `PLAN.md` — product scope, milestones, and the unified agent architecture.
 - `README.md` — setup + context.
 
@@ -70,12 +70,12 @@
 - Always use npm. Even if another lockfile appears, prefer npm.
 - Before adding a runtime dep, check whether it belongs in `dependencies` (shipped) or `devDependencies` (tooling only).
 
-## Cloudflare Workflows
+## Agent runtime
 
-- All long-running agent work runs as a Workflow in `workers/`. No exceptions for MVP.
-- Wrap external side effects in `step.do(...)` so they're idempotent on replay.
-- Workflows use `supabaseAdmin()` — always validate ownership before writing.
-- Route handlers trigger workflows and return immediately with the entity id (e.g. `turnId`). They do not block on LLM output.
+- Long-running agent work currently runs as exported functions inside `*.command.ts`, triggered from server actions via `ctx.waitUntil(...)`.
+- Agent functions use `supabaseAdmin()` — always validate ownership before writing.
+- Server actions trigger long-running agent work via `ctx.waitUntil` and return the entity id immediately. They do not block on LLM output.
+- Migration to real Cloudflare Workflows under `workers/` is planned but deferred — there is no `workers/` directory today.
 
 ## Streaming (Supabase Realtime)
 
@@ -100,4 +100,4 @@
 ## Prompts
 
 - Port each rf skill (`SKILL.md`) to a `.prompt.ts` module under `prompts/`. Keep prompts pure — no I/O, no Supabase calls.
-- Prompts are called from commands, workflows, or services.
+- Prompts are called from commands or services.

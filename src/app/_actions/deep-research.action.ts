@@ -3,9 +3,13 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
-import { closeSession, startSession, submitTurn } from '@/server/domain/deep-research/deep-research.command';
+import {
+  closeSession,
+  runDeepResearchTurn,
+  startSession,
+  submitTurn,
+} from '@/server/domain/deep-research/deep-research.command';
 import { getSessionById } from '@/server/domain/deep-research/deep-research.repository';
-import { runDeepResearchTurnWorkflow } from '@/server/domain/deep-research/deep-research.workflow';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { withAuth } from '@/server/lib/utils/auth';
@@ -38,7 +42,7 @@ export const startSessionAction = withAuth(async (userId: string, formData: Form
 
   const { ctx } = getCloudflareContext();
   ctx.waitUntil(
-    runDeepResearchTurnWorkflow({ userId, sessionId, turnId }).catch((error) => {
+    runDeepResearchTurn({ userId, sessionId, turnId }).catch((error) => {
       console.error('[deep-research] workflow failed (start)', error);
     }),
   );
@@ -68,7 +72,7 @@ export const submitTurnAction = withAuth(async (userId: string, formData: FormDa
 
   const { ctx } = getCloudflareContext();
   ctx.waitUntil(
-    runDeepResearchTurnWorkflow({ userId, sessionId: parsed.data.sessionId, turnId }).catch((error) => {
+    runDeepResearchTurn({ userId, sessionId: parsed.data.sessionId, turnId }).catch((error) => {
       console.error('[deep-research] workflow failed (submit)', error);
     }),
   );

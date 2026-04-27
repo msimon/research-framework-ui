@@ -3,8 +3,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
-import { getOrCreateLandscape } from '@/server/domain/landscapes/landscapes.command';
-import { runLandscapeWorkflow } from '@/server/domain/landscapes/landscapes.workflow';
+import { getOrCreateLandscape, runLandscape } from '@/server/domain/landscapes/landscapes.command';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { withAuth } from '@/server/lib/utils/auth';
@@ -34,7 +33,7 @@ export const triggerLandscapeAction = withAuth(async (userId: string, formData: 
 
   const { ctx } = getCloudflareContext();
   ctx.waitUntil(
-    runLandscapeWorkflow({
+    runLandscape({
       userId,
       subjectId: subject.id,
       topicSlug: topic.slug,
