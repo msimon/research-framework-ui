@@ -2,6 +2,14 @@
 
 Web UI around the `rf` research framework, running the same pipeline (minus pitch/slides) so research can be done from anywhere and shared. MVP covers `init-subject → discover/add-topics → landscape → deep-research (+ resume)`. Synthesize, solution, and pitch are out of scope for MVP.
 
+## 0. Source repos (absolute paths)
+
+| Name | Path | Role |
+|---|---|---|
+| **rf plugin** | `/Users/marc/programing/perso/research-framwork` | Source of prompts and workflow semantics. Port `skills/*/SKILL.md` → `prompts/*.ts`. Templates in `templates/subject/` inform the DB schema and default content. |
+| **Todo** | `/Users/marc/programing/perso/Todo` | Source of framework scaffolding. See §6 for exact files to copy. Next.js 16 + Supabase + Clean Architecture reference. |
+| **this repo** | `/Users/marc/programing/perso/research-framwork-ui` | Target. Currently empty. |
+
 ## 1. Stack
 
 | Layer | Choice |
@@ -16,7 +24,7 @@ Web UI around the `rf` research framework, running the same pipeline (minus pitc
 | Streaming | Supabase Realtime — broadcast channel per turn + postgres_changes on completion |
 | Observability | Sentry |
 | Tests | deferred; Miniflare when we invest |
-| Design | generated later via `gstack-design-*` skills |
+| Design | generated later during Milestone 5 |
 
 ### Decisions
 
@@ -68,6 +76,8 @@ usage_events(id, user_id, event_type, model,
 ## 3. Agent architecture
 
 **All skills run as Cloudflare Workflows.** One uniform primitive — no Durable Objects. Each Workflow broadcasts events to a **durable-entity-scoped** Supabase Realtime channel as it runs and writes the final state to the DB on completion.
+
+> **Status: deferred.** Long-running agent work currently runs as exported functions inside `*.command.ts`, triggered by server actions via `ctx.waitUntil`. Migration to real Cloudflare Workflows under `workers/` is planned but not yet implemented.
 
 **Channel naming (entity-scoped, long-lived).** The channel is tied to the thing the user is looking at — not the individual workflow run — so the client subscribes once on page mount and never misses events due to subscribe-after-start races:
 
@@ -289,7 +299,7 @@ Each `SKILL.md` in `/research-framwork/skills/*` ports to a TS template under `p
 | **3** | **Landscape** | `landscapes` + `sources` tables, `LandscapeWorkflow`, landscape page with streaming markdown |
 | **3.5** | **Code review** | Run `/review-code-change` across everything in milestones 0–3; fix all reported issues before moving on |
 | **4** | **Deep-research** | `sessions` + `turns` tables, `DeepResearchTurnWorkflow`, Supabase broadcast chat, `resume`, auto-promote insights on close |
-| **5** | **Design pass** | UI redesign via `gstack-design-consultation` + `gstack-design-shotgun`; empty/loading/error states |
+| **5** | **Design pass** | UI redesign; empty/loading/error states |
 | **5.5** | **Code review** | Run `/review-code-change` across milestones 4–5; fix all reported issues |
 | **Post-MVP** | | `synthesize` · `solution` · BYOK · rate limits · markdown editing · Miniflare tests |
 

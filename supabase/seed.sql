@@ -1,0 +1,2 @@
+-- Seed file intentionally empty.
+-- Add optional demo rows here.
