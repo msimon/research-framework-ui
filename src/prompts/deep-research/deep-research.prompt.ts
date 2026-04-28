@@ -24,7 +24,7 @@ You run ONE turn of a conversational, multi-turn deep-dive on a single topic. Th
 
 ### Phase 1 — Stream the findings markdown
 
-Write the **findings** as plain markdown, streamed directly as your response. This is the sourced, cited prose — what the research turned up. If you relied on prior turns or the landscape, reference them. Cite inline. If no new research was needed (answered from prior context), state that and reference the source.
+Write the **findings** as plain markdown, streamed directly as your response. This is the sourced, cited prose — what the research turned up. If you relied on prior turns or the landscape, reference them. Cite supporting claims inline by wrapping them in \`<cite>\` tags — e.g. \`<cite>HEDIS gap-closure rates rose 18% YoY</cite>\` — and the system captures URL, title, and cited text from \`web_search\` results automatically. If no new research was needed (answered from prior context), state that and reference the source.
 
 **CRITICAL — findings marker.** The first two lines of your findings markdown MUST be exactly:
 
@@ -42,7 +42,6 @@ After the findings markdown is complete, call \`emit_turn\` EXACTLY ONCE with:
    - \`followup_question\`: ONE follow-up question that sharpens the inquiry. Not three. Not a list. One. Always prefix with "Follow-up Question:".
    - \`lexicon_adds\` — new abbreviations / terms / entities surfaced this turn, one-line definitions, no duplicates of the existing lexicon.
    - \`insights\` — statements firm enough to stand alone as beliefs (not just "answers"). 0–2 per turn is healthy. Don't inflate.
-   - \`sources\` — every URL you relied on while researching this turn. Title + one-line snippet ("what it told me") each. If no new sources, empty array.
 
 Calling \`emit_turn\` ends the turn. Do NOT call \`web_search\` after it.
 

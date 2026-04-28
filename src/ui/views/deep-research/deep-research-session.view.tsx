@@ -9,8 +9,9 @@ import {
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
-import { CloseSessionButton } from '@/ui/views/deep-research/close-session-button.view';
-import { SessionChat } from '@/ui/views/deep-research/session-chat.view';
+import type { CitationEntry } from '@/shared/citation.type';
+import { CloseSessionButton } from '@/ui/views/deep-research/components/close-session-button.component';
+import { SessionChat } from '@/ui/views/deep-research/components/session-chat.component';
 
 type Props = {
   slug: string;
@@ -65,6 +66,7 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
           my_read_md: t.my_read_md,
           followup_question: t.followup_question,
           reasoning_md: t.reasoning_md,
+          citation_map: (t.citation_map as CitationEntry[] | null) ?? [],
           status: t.status,
           error_message: t.error_message,
         }))}
@@ -73,7 +75,6 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
           turn_id: s.turn_id,
           url: s.url,
           title: s.title,
-          snippet: s.snippet,
         }))}
       />
     </div>

@@ -28,19 +28,6 @@ export const openQuestionEntrySchema = z.object({
 
 export type OpenQuestionEntry = z.infer<typeof openQuestionEntrySchema>;
 
-export const landscapeSourceSchema = z.object({
-  url: z.string().url(),
-  title: z.string().optional(),
-  snippet: z
-    .string()
-    .optional()
-    .describe(
-      'One-line summary of what this source told you. Mirror the "what it told me" line in the markdown.',
-    ),
-});
-
-export type LandscapeSource = z.infer<typeof landscapeSourceSchema>;
-
 export const landscapeUpdatesSchema = z.object({
   research_brief_append: z
     .string()
@@ -57,12 +44,6 @@ export const landscapeUpdatesSchema = z.object({
     .array(openQuestionEntrySchema)
     .default([])
     .describe('New unknowns and contradictions surfaced.'),
-  sources: z
-    .array(landscapeSourceSchema)
-    .default([])
-    .describe(
-      'Every URL you actually relied on while writing the landscape. This is the canonical citation list — do not omit sources just because they are referenced inline in prose.',
-    ),
 });
 
 export type LandscapeUpdates = z.infer<typeof landscapeUpdatesSchema>;

@@ -83,6 +83,7 @@ export type Database = {
       }
       deep_research_turns: {
         Row: {
+          citation_map: Json
           created_at: string
           error_message: string | null
           findings_md: string | null
@@ -102,6 +103,7 @@ export type Database = {
           workflow_instance_id: string | null
         }
         Insert: {
+          citation_map?: Json
           created_at?: string
           error_message?: string | null
           findings_md?: string | null
@@ -121,6 +123,7 @@ export type Database = {
           workflow_instance_id?: string | null
         }
         Update: {
+          citation_map?: Json
           created_at?: string
           error_message?: string | null
           findings_md?: string | null
@@ -189,6 +192,7 @@ export type Database = {
       }
       landscapes: {
         Row: {
+          citation_map: Json
           content_md: string
           created_at: string
           error_message: string | null
@@ -199,6 +203,7 @@ export type Database = {
           workflow_instance_id: string | null
         }
         Insert: {
+          citation_map?: Json
           content_md?: string
           created_at?: string
           error_message?: string | null
@@ -209,6 +214,7 @@ export type Database = {
           workflow_instance_id?: string | null
         }
         Update: {
+          citation_map?: Json
           content_md?: string
           created_at?: string
           error_message?: string | null
@@ -235,7 +241,6 @@ export type Database = {
           landscape_id: string | null
           retrieved_at: string
           session_id: string | null
-          snippet: string | null
           title: string | null
           topic_id: string
           turn_id: string | null
@@ -248,7 +253,6 @@ export type Database = {
           landscape_id?: string | null
           retrieved_at?: string
           session_id?: string | null
-          snippet?: string | null
           title?: string | null
           topic_id: string
           turn_id?: string | null
@@ -261,7 +265,6 @@ export type Database = {
           landscape_id?: string | null
           retrieved_at?: string
           session_id?: string | null
-          snippet?: string | null
           title?: string | null
           topic_id?: string
           turn_id?: string | null

@@ -22,6 +22,8 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
+import { dedupeCitations } from '@/server/lib/utils/dedupe-citations.util';
+import type { CitationEntry } from '@/shared/citation.type';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
 type LandscapeRow = Database['public']['Tables']['landscapes']['Row'];
@@ -84,6 +86,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     send({ type: 'status', status: 'streaming' });
 
     let markdown = '';
+    const citationsLog: Array<{ url: string; title: string | null; cited_text: string }> = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -134,6 +137,17 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
               name: chunk.toolName,
             });
           }
+        } else if (chunk.type === 'source' && chunk.sourceType === 'url') {
+          const citedText = (chunk.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
+            ?.citedText;
+          if (typeof citedText !== 'string') return;
+          const entry = {
+            url: chunk.url,
+            title: chunk.title ?? null,
+            cited_text: citedText,
+          };
+          citationsLog.push(entry);
+          send({ type: 'citation', ...entry });
         }
       },
     });
@@ -154,6 +168,12 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       `[landscape] subject=${subject.slug} topic=${topic.slug} steps=${steps.length} web_search=${webSearchCount} input_tokens=${totalUsage.inputTokens ?? 0} cached_input_tokens=${totalUsage.cachedInputTokens ?? 0} output_tokens=${totalUsage.outputTokens ?? 0}`,
     );
 
+    const dedupedSources = dedupeCitations(citationsLog);
+    const citationMap: CitationEntry[] = citationsLog.map((c) => ({
+      url: c.url,
+      cited_text: c.cited_text,
+    }));
+
     await completeLandscape({
       landscapeId: input.landscapeId,
       topicId: topic.id,
@@ -169,7 +189,8 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       briefAppend: updates.research_brief_append,
       lexiconAdds: updates.lexicon_adds,
       openQuestionAdds: updates.open_questions_adds,
-      sources: updates.sources,
+      sources: dedupedSources,
+      citationMap,
     });
 
     send({ type: 'complete' });
@@ -196,7 +217,8 @@ type CompleteLandscapeInput = {
   briefAppend: string;
   lexiconAdds: LexiconEntry[];
   openQuestionAdds: OpenQuestionEntry[];
-  sources: Array<{ url: string; title?: string; snippet?: string }>;
+  sources: Array<{ url: string; title: string | null }>;
+  citationMap: CitationEntry[];
 };
 
 async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
@@ -217,6 +239,7 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
 
   await updateLandscape(input.landscapeId, {
     content_md: input.contentMd,
+    citation_map: input.citationMap,
     status: 'complete',
     error_message: null,
   });
@@ -228,8 +251,7 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
       topic_id: input.topicId,
       landscape_id: input.landscapeId,
       url: s.url,
-      title: s.title ?? null,
-      snippet: s.snippet ?? null,
+      title: s.title,
     }));
     await insertSources(rows);
   }

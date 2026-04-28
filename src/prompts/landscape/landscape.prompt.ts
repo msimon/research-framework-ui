@@ -44,7 +44,7 @@ _Recent shifts, contested narratives, trends. Dated where possible._
 _What you couldn't resolve, where sources disagree, what to chase next._
 \`\`\`
 
-Do NOT include a "## Sources" section in the markdown body — citations are emitted structurally via \`emit_updates.sources\` and rendered separately. Inline references in prose are fine (e.g. "per CMS's 2024 interoperability rule"), but no dumped URL list at the bottom.
+Cite supporting claims inline in the markdown by wrapping the claim in \`<cite>\` tags — e.g. \`<cite>UnitedHealth's Optum reported 27% YoY growth in Q3 2024</cite>\`. Inline references in prose are also fine (e.g. "per CMS's 2024 interoperability rule"). The sources list renders separately under the landscape — keep it out of the markdown body.
 
 **Term discipline in the body:**
 - When introducing a domain-specific term for the first time, spell it out with the abbreviation in parentheses — e.g. "prior authorization (PA)". Use the abbreviation thereafter.
@@ -58,7 +58,6 @@ After the markdown is complete, call \`emit_updates\` EXACTLY ONCE with:
 - \`research_brief_append\` — a 5–8 line block to append to the subject's research brief under a \`## <topic title>\` heading. Firmest takeaways only, no hedges, written as claims. If a \`[prior]\` from the brief was stress-tested, note it here: "Stress-tested prior: <prior text> → validated / contested: <reason>".
 - \`lexicon_adds\` — new abbreviations, terms, and entities surfaced during the landscape. Do not duplicate entries already in the lexicon passed in. One-line definitions only.
 - \`open_questions_adds\` — new unknowns / contradictions surfaced. Tag each with the topic slug in brackets — e.g. "[<slug>] Why does payer X allow direct billing when payer Y doesn't?".
-- \`sources\` — every URL you actually relied on while writing the landscape. Title + one-line snippet ("what it told me") for each. This is the canonical citation list; it's rendered alongside the landscape in the UI and accumulates across future deep-research runs on the same topic, so be complete.
 
 Calling \`emit_updates\` ends the skill. Do NOT call \`web_search\` after it.
 

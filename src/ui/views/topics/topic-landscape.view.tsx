@@ -6,9 +6,10 @@ import { findLandscapeByTopic, findSourcesByTopic } from '@/server/domain/landsc
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
+import type { CitationEntry } from '@/shared/citation.type';
 import { SectionNav } from '@/ui/components/section-nav';
-import { DeepResearchSection } from '@/ui/views/topics/deep-research-section.view';
-import { LandscapeView } from '@/ui/views/topics/landscape.view';
+import { DeepResearchSection } from '@/ui/views/topics/components/deep-research-section.component';
+import { LandscapeView } from '@/ui/views/topics/components/landscape.component';
 
 type Props = {
   slug: string;
@@ -52,6 +53,7 @@ export async function TopicLandscapeView({ slug, topicSlug }: Props) {
               ? {
                   id: landscape.id,
                   content_md: landscape.content_md,
+                  citation_map: (landscape.citation_map as CitationEntry[] | null) ?? [],
                   status: landscape.status,
                   error_message: landscape.error_message,
                   updated_at: landscape.updated_at,
@@ -62,7 +64,6 @@ export async function TopicLandscapeView({ slug, topicSlug }: Props) {
             id: s.id,
             url: s.url,
             title: s.title,
-            snippet: s.snippet,
           }))}
         />
       </div>

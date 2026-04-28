@@ -2,14 +2,6 @@ import { z } from 'zod';
 
 import { lexiconEntrySchema } from '@/prompts/landscape/landscape.schema';
 
-export const deepResearchSourceSchema = z.object({
-  url: z.string().url(),
-  title: z.string().optional(),
-  snippet: z.string().optional().describe('One-line summary of what this source told you for this turn.'),
-});
-
-export type DeepResearchSource = z.infer<typeof deepResearchSourceSchema>;
-
 export const deepResearchInsightSchema = z.object({
   text: z
     .string()
@@ -39,10 +31,6 @@ export const deepResearchTurnSchema = z.object({
     .array(deepResearchInsightSchema)
     .default([])
     .describe('Firm-enough-to-stand-alone beliefs. 0–2 per turn typically. Do not inflate.'),
-  sources: z
-    .array(deepResearchSourceSchema)
-    .default([])
-    .describe('Every URL you relied on while researching this turn. Empty if no new sources.'),
 });
 
 export type DeepResearchTurn = z.infer<typeof deepResearchTurnSchema>;

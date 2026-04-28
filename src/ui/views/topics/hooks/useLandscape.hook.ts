@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
+import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
 
 export type LandscapeState = {
   id: string;
   content_md: string;
+  citation_map: CitationEntry[];
   status: 'pending' | 'streaming' | 'complete' | 'failed' | string;
   error_message: string | null;
   updated_at: string;
@@ -19,7 +21,6 @@ export type SourceItem = {
   id: string;
   url: string;
   title: string | null;
-  snippet: string | null;
 };
 
 export type ToolCallChip = {
@@ -35,6 +36,7 @@ type LandscapeEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
+  | { type: 'citation'; url: string; title: string | null; cited_text: string }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -52,6 +54,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
   const [streaming, setStreaming] = useState(initialLandscape?.status === 'streaming');
   const [liveContent, setLiveContent] = useState('');
   const [liveReasoning, setLiveReasoning] = useState('');
+  const [liveCitations, setLiveCitations] = useState<CitationEntry[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallChip[]>([]);
   const [error, setError] = useState<string | null>(initialLandscape?.error_message ?? null);
   const [reasoningOpen, setReasoningOpen] = useState(true);
@@ -82,6 +85,9 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
           }
           case 'tool_result':
             setToolCalls((prev) => prev.map((c) => (c.id === payload.id ? { ...c, resolved: true } : c)));
+            break;
+          case 'citation':
+            setLiveCitations((prev) => [...prev, { url: payload.url, cited_text: payload.cited_text }]);
             break;
           case 'complete':
             setStreaming(false);
@@ -160,6 +166,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     setError(null);
     setLiveContent('');
     setLiveReasoning('');
+    setLiveCitations([]);
     setToolCalls([]);
     setStreaming(true);
     setReasoningOpen(true);
@@ -182,6 +189,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
           : {
               id: newId,
               content_md: '',
+              citation_map: [],
               status: 'streaming',
               error_message: null,
               updated_at: new Date().toISOString(),
@@ -196,6 +204,8 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
   const hasContent = displayContent.trim().length > 0;
   const isWorking = streaming;
 
+  const citationMap = streaming ? liveCitations : (landscape?.citation_map ?? []);
+
   return {
     landscape,
     sources,
@@ -208,5 +218,6 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     displayContent,
     hasContent,
     isWorking,
+    citationMap,
   };
 }

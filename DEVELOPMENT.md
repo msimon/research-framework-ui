@@ -116,7 +116,11 @@ if (condition) { loaded = await findExisting(id); } else { loaded = await create
 Presentation, logic, and routing are three separate concerns. Keep them in three different places — but be pragmatic about what counts as "logic."
 
 - **Page** (`app/**/page.tsx`) — a shell. Resolves route params, fetches initial data via commands/repositories, renders a single view component. **No markup, no `<div>`, no Tailwind classes.**
-- **View** (`*.view.tsx`) — primarily JSX. May contain trivial UI state (a disclosure toggle, a controlled input), small inline onClick wiring, and pure helper functions. **Should NOT contain substantial logic** — see below.
+- **View** (`*.view.tsx`) — primarily JSX. **At most one `.view.tsx` per feature folder** — the entry point called from the page. May contain trivial UI state (a disclosure toggle, a controlled input), small inline onClick wiring, and pure helper functions. **Should NOT contain substantial logic** — see below.
+- **Component** (`*.component.tsx`) — a reusable DOM-manipulating piece (its own JSX). One component per file. Components scoped to a single view live in a `components/` subfolder under that feature (`ui/views/{feature}/components/`), mirroring the `hooks/` subfolder convention. Components shared across features live under `src/ui/components/`. Naming is `kebab-case.component.tsx`; the exported component is PascalCase.
+- **Type** (`*.type.ts`) — a shared type or interface that crosses layer boundaries (server ↔ UI, or used by multiple modules). One concept per file. Lives under `src/shared/` when used by both server and UI; otherwise co-located with its primary user. Naming is `kebab-case.type.ts`; the exported types are PascalCase.
+- **Context** (`*.context.tsx`) — a React context provider, the context object itself, and any hook tightly coupled to it (`useThing()`). One context per file. Lives under `src/ui/components/` (shared) or alongside the consuming view. Naming is `kebab-case.context.tsx`; the exported provider is PascalCase (e.g. `CitationProvider`).
+- **Util** (`*.util.ts`) — a pure helper function with no I/O and no framework dependencies. One concept per file. Lives under `src/server/lib/utils/` (server-only) or `src/shared/lib/utils/` (cross-runtime). Naming is `kebab-case.util.ts`.
 - **Hook** (`use<Feature>.hook.ts`, under `ui/views/{feature}/hooks/`) — where substantial logic lives. Named `use<Feature>`, co-located with the view.
 - **Layouts** (`app/**/layout.tsx`) may contain markup — they own cross-cutting chrome shared by multiple pages.
 
@@ -240,7 +244,7 @@ export async function runDeepResearchTurn({ turnId, sessionId, userText }: RunTu
 - Server actions trigger the function via `ctx.waitUntil(runX(...))` and return the entity id immediately. They do not block on LLM output.
 - Externally-visible side effects (DB writes, LLM calls) should be idempotent where possible — even though we have no `step.do` checkpointing today, a future migration to Workflows will require it.
 - Broadcast during the run; durable write on completion. Never rely on broadcast for durability.
-- Agent functions use `supabaseAdmin()` (the request cookie is gone once `waitUntil` detaches). Always validate `user_id` matches the owning entity before writing.
+- Agent functions use `supabaseAdmin()`. Although the captured cookie store may still be readable inside `waitUntil` via AsyncLocalStorage, JWT refresh writes fail post-response (`setAll` errors are swallowed in `supabaseUser()`), so the auth state is frozen at request-time and a long-running agent will break if the JWT expires mid-run. Always validate `user_id` matches the owning entity before any write.
 
 ## Supabase Realtime — Streaming Convention
 
@@ -374,7 +378,7 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 
 ### Architecture
 
-- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.view.tsx`, etc.)
+- Files use correct suffixes (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.view.tsx`, `.component.tsx`, `.context.tsx`, `.hook.ts`, `.type.ts`, `.util.ts`, etc.)
 - Imports use `@/` alias — no relative paths or `src/` prefixes
 - No namespace imports (`import * as X from …`); named exports only for shared modules. Exception: vendored shadcn/ui components may keep their upstream `import * as React` / `import * as RadixX` form.
 - Commands don't call other commands
@@ -428,6 +432,7 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 ### UI
 
 - Pages (`app/**/page.tsx`) contain no markup — only data resolution + a single view render. Layouts may have markup.
+- Each feature folder under `ui/views/{feature}/` has at most one `*.view.tsx` — the entry point called from the page. Sub-components scoped to that view live in `ui/views/{feature}/components/` (mirrors the `hooks/` subfolder), one component per file. Components shared across features live under `src/ui/components/`.
 - Views (`*.view.tsx`) are primarily JSX. Substantial logic — real-time subscriptions (Supabase broadcast / `postgres_changes`, WebSocket), streaming state machines, multi-step flows, orchestration — must live in a co-located `use<Feature>.hook.ts` under `ui/views/{feature}/hooks/`. Trivial UI state (a disclosure toggle, a one-line `useEffect` for focus) can stay in the view. Test: would a reader need to read effect bodies to understand what the view renders?
 - Hooks are named `use<Feature>.hook.ts`, co-located with the view, and export one `use<Feature>()` function.
 - UI components prefer Shadcn — no unnecessary custom components

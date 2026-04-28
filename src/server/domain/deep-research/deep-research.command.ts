@@ -23,6 +23,8 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
+import { dedupeCitations } from '@/server/lib/utils/dedupe-citations.util';
+import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
@@ -153,6 +155,7 @@ type CompleteTurnInput = {
   followupQuestion: string;
   reasoningMd: string;
   toolCalls: unknown[];
+  citationMap: CitationEntry[];
   modelUsed: string;
   insights: PersistedInsight[];
   lexiconAdds: LexiconEntry[];
@@ -170,6 +173,7 @@ async function completeTurn(input: CompleteTurnInput): Promise<void> {
     followup_question: input.followupQuestion,
     reasoning_md: input.reasoningMd,
     tool_calls: input.toolCalls as never,
+    citation_map: input.citationMap,
     model_used: input.modelUsed,
     insights: input.insights as never,
     status: 'complete',
@@ -243,6 +247,7 @@ export async function runDeepResearchTurn(
     let markerFound = false;
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
+    const citationsLog: Array<{ url: string; title: string | null; cited_text: string }> = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -308,6 +313,17 @@ export async function runDeepResearchTurn(
               name: chunk.toolName,
             });
           }
+        } else if (chunk.type === 'source' && chunk.sourceType === 'url') {
+          const citedText = (chunk.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
+            ?.citedText;
+          if (typeof citedText !== 'string') return;
+          const entry = {
+            url: chunk.url,
+            title: chunk.title ?? null,
+            cited_text: citedText,
+          };
+          citationsLog.push(entry);
+          send({ type: 'citation', ...entry });
         }
       },
     });
@@ -330,6 +346,12 @@ export async function runDeepResearchTurn(
     const endMatch = FINDINGS_MARKER.exec(finalText);
     const findingsMd = endMatch ? finalText.slice(endMatch.index + endMatch[0].length) : finalText;
 
+    const dedupedSources = dedupeCitations(citationsLog);
+    const citationMap: CitationEntry[] = citationsLog.map((c) => ({
+      url: c.url,
+      cited_text: c.cited_text,
+    }));
+
     await completeTurn({
       turnId: input.turnId,
       findingsMd,
@@ -337,6 +359,7 @@ export async function runDeepResearchTurn(
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,
       toolCalls: toolCallsLog,
+      citationMap,
       modelUsed: serverConfig.llm.model,
       insights: turnOutput.insights,
       lexiconAdds: turnOutput.lexicon_adds,
@@ -345,16 +368,15 @@ export async function runDeepResearchTurn(
       topicTitle: topic.title,
     });
 
-    if (turnOutput.sources.length > 0) {
+    if (dedupedSources.length > 0) {
       await insertTurnSources(
-        turnOutput.sources.map((s) => ({
+        dedupedSources.map((s) => ({
           topic_id: topic.id,
           turn_id: input.turnId,
           session_id: input.sessionId,
           landscape_id: null,
           url: s.url,
-          title: s.title ?? null,
-          snippet: s.snippet ?? null,
+          title: s.title,
         })),
       );
     }

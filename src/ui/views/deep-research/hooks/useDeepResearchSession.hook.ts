@@ -4,6 +4,7 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
+import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
 
 export type DeepResearchTurnState = {
@@ -14,6 +15,7 @@ export type DeepResearchTurnState = {
   my_read_md: string | null;
   followup_question: string | null;
   reasoning_md: string | null;
+  citation_map: CitationEntry[];
   status: string;
   error_message: string | null;
 };
@@ -23,13 +25,13 @@ export type DeepResearchSourceState = {
   turn_id: string | null;
   url: string;
   title: string | null;
-  snippet: string | null;
 };
 
 export type LiveTurnBuffer = {
   text: string;
   reasoning: string;
   toolCalls: Array<{ id: string; name: string; query: string; resolved: boolean }>;
+  citations: CitationEntry[];
 };
 
 type SessionEvent =
@@ -38,6 +40,7 @@ type SessionEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
+  | { type: 'citation'; url: string; title: string | null; cited_text: string }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -70,7 +73,7 @@ export function useDeepResearchSession(args: Args) {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
         setLive((prev) => {
-          const existing = prev[turnId] ?? { text: '', reasoning: '', toolCalls: [] };
+          const existing = prev[turnId] ?? { text: '', reasoning: '', toolCalls: [], citations: [] };
           switch (payload.type) {
             case 'text':
               return { ...prev, [turnId]: { ...existing, text: existing.text + payload.delta } };
@@ -100,6 +103,14 @@ export function useDeepResearchSession(args: Args) {
                   toolCalls: existing.toolCalls.map((c) =>
                     c.id === payload.id ? { ...c, resolved: true } : c,
                   ),
+                },
+              };
+            case 'citation':
+              return {
+                ...prev,
+                [turnId]: {
+                  ...existing,
+                  citations: [...existing.citations, { url: payload.url, cited_text: payload.cited_text }],
                 },
               };
             default:

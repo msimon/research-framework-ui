@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { CitationProvider } from '@/ui/components/citation.context';
 import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
 import {
@@ -32,6 +33,7 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
     displayContent,
     hasContent,
     isWorking,
+    citationMap,
   } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources });
 
   const showExplainer = isWorking && !hasContent;
@@ -68,9 +70,11 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
       ) : null}
 
       {hasContent ? (
-        <section className="rounded-md border bg-card p-6">
-          <Markdown>{displayContent}</Markdown>
-        </section>
+        <CitationProvider value={{ citationMap, sources }}>
+          <section className="rounded-md border bg-card p-6">
+            <Markdown>{displayContent}</Markdown>
+          </section>
+        </CitationProvider>
       ) : null}
 
       {error ? (
@@ -92,13 +96,13 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
       ) : null}
 
       {sources.length > 0 ? (
-        <details id="sources" className="scroll-mt-16 rounded-md border bg-muted/20">
+        <details id="sources" open className="scroll-mt-16 rounded-md border bg-muted/20">
           <summary className="cursor-pointer select-none p-3 text-sm font-medium text-muted-foreground">
             Sources ({sources.length})
           </summary>
           <ul className="flex flex-col divide-y divide-border/40 border-t">
             {sources.map((source, idx) => (
-              <li key={source.id} className="p-3 text-sm">
+              <li key={source.id} id={`source-${idx + 1}`} className="scroll-mt-16 p-3 text-sm">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}.</span>
                   <a
@@ -110,9 +114,6 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
                     {source.title || source.url}
                   </a>
                 </div>
-                {source.snippet ? (
-                  <p className="ml-6 mt-1 text-xs text-muted-foreground">{source.snippet}</p>
-                ) : null}
               </li>
             ))}
           </ul>
