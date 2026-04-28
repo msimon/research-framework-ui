@@ -24,6 +24,7 @@ import {
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 import { dedupeCitations } from '@/server/lib/utils/dedupe-citations.util';
+import { logCitationDebug } from '@/server/lib/utils/log-citation-debug.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
@@ -279,6 +280,7 @@ export async function runDeepResearchTurn(
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
       onChunk({ chunk }) {
+        logCitationDebug(`deep-research:turn=${input.turnId}`, chunk);
         if (chunk.type === 'text-delta') {
           if (markerFound) {
             send({ type: 'text', delta: chunk.text });
