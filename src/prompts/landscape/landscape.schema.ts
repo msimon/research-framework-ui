@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const lexiconEntrySchema = z.object({
-  kind: z.enum(['abbreviation', 'term', 'entity']),
+  kind: z.enum(['abbreviation', 'term', 'entity']).nullable().catch(null),
   label: z.string().describe('The abbreviation, term, or entity name.'),
   expansion: z
     .string()
@@ -22,6 +22,7 @@ export const openQuestionEntrySchema = z.object({
   section: z
     .enum(['key_unknowns', 'contradictions'])
     .default('key_unknowns')
+    .catch('key_unknowns')
     .describe('Where to file it. Contradictions = where sources disagree.'),
 });
 

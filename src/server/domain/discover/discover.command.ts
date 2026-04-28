@@ -2,7 +2,7 @@ import 'server-only';
 import { generateText, hasToolCall, stepCountIs, tool } from 'ai';
 
 import { DISCOVER_SYSTEM_PROMPT } from '@/prompts/discover/discover.prompt';
-import { type DiscoverResponse, discoverResponseSchema } from '@/prompts/discover/discover.schema';
+import { discoverResponseSchema } from '@/prompts/discover/discover.schema';
 import { getSubjectById } from '@/server/domain/subjects/subjects.repository';
 import { createTopic, findTopicsBySubject } from '@/server/domain/topics/topics.repository';
 import {
@@ -87,7 +87,7 @@ export async function runDiscover(input: RunDiscoverInput): Promise<RunDiscoverR
     if (!emitCall) {
       throw new Error('Discover model did not call emit_topics');
     }
-    const response = emitCall.input as DiscoverResponse;
+    const response = discoverResponseSchema.parse(emitCall.input);
 
     let sortOrder = existingTopics.length;
     let insertedCount = 0;

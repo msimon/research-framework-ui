@@ -2,7 +2,8 @@ import 'server-only';
 import { hasToolCall, stepCountIs, streamText, tool } from 'ai';
 
 import { DEEP_RESEARCH_SYSTEM_PROMPT } from '@/prompts/deep-research/deep-research.prompt';
-import { type DeepResearchTurn, deepResearchTurnSchema } from '@/prompts/deep-research/deep-research.schema';
+import { deepResearchTurnSchema } from '@/prompts/deep-research/deep-research.schema';
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import {
   createSession,
   createTurn,
@@ -93,13 +94,6 @@ export async function submitTurn(input: SubmitTurnInput): Promise<SubmitTurnResu
 }
 
 type PersistedInsight = { text: string };
-
-type LexiconEntry = {
-  kind: 'abbreviation' | 'term' | 'entity';
-  label: string;
-  expansion?: string;
-  definition: string;
-};
 
 function isInsight(value: unknown): value is PersistedInsight {
   return (
@@ -324,7 +318,7 @@ export async function runDeepResearchTurn(
     const allToolCalls = steps.flatMap((s) => s.toolCalls);
     const emitCall = allToolCalls.find((c) => c.toolName === 'emit_turn');
     if (!emitCall) throw new Error('Deep-research model did not call emit_turn');
-    const turnOutput = emitCall.input as DeepResearchTurn;
+    const turnOutput = deepResearchTurnSchema.parse(emitCall.input);
 
     const totalUsage = await result.totalUsage;
     const webSearchCount = allToolCalls.filter((c) => c.toolName === 'web_search').length;

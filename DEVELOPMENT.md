@@ -272,6 +272,14 @@ Each rf skill in `/Users/marc/programing/perso/research-framwork/skills/*/SKILL.
 
 Building `messages: CoreMessage[]` is domain logic: it pulls in entity state, history, per-turn context. That goes in the caller — the `.command.ts` that invokes the LLM. Do **not** put a `buildXxxMessages` function inside `.prompt.ts` or `.schema.ts`.
 
+### Validating tool outputs at the boundary
+
+Anthropic does **not** constrain-decode tool outputs against the `inputSchema` — the schema is *guidance* to the model, not enforcement. Drift happens, especially on `z.enum(...)` fields. Treat any `emitCall.input` (or other LLM-emitted structured payload) as untrusted and pass it through Zod before consuming it.
+
+- **Always parse, never cast.** Use `mySchema.parse(emitCall.input)` at the boundary — never `emitCall.input as MyType`. A bare cast hides drift until it surfaces as a downstream type or DB error mid-run, often after partial state has been written.
+- **Don't redefine schema-derived types.** Import the inferred type (`type X = z.infer<typeof xSchema>`) from `*.schema.ts` rather than re-declaring the same shape inline in a command. Local re-declarations silently fall out of sync when the schema changes (e.g. when an enum gains `.nullable()` for drift handling).
+- **Use `.catch(default)` for soft enums** where drift should degrade gracefully instead of failing the run (e.g. category buckets, kind labels). Reserve hard `.parse()` failure for *structural* drift (missing required fields, wrong type, array bounds).
+
 ## When to Add a Server Action vs API Route
 
 - **Server Action** — UI-driven mutations within this app.
@@ -407,6 +415,9 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 - `.prompt.ts` exports only `const` strings — no Zod, no helpers, no types, no message builders
 - `.schema.ts` is pure — no I/O, no prompt text, no message construction
 - Message construction (`messages: CoreMessage[]`) lives at the call site (`.command.ts`), not in `.prompt.ts` or `.schema.ts`
+- LLM tool inputs (`emitCall.input` etc.) are validated with `schema.parse(...)` at the boundary — never `as Type` casts. Anthropic does not constrain-decode tool outputs, so drift must be caught explicitly.
+- Types in commands are imported from `*.schema.ts` via `z.infer` — never re-declared locally with the same shape.
+- Soft enums use `.catch(default)` for graceful degradation; structural fields rely on `.parse()` to throw on drift.
 
 ### Agent runtime
 
