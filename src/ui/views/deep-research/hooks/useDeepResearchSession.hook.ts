@@ -1,11 +1,12 @@
 'use client';
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
+import { buildEffectiveSources } from '@/shared/lib/utils/build-effective-sources.util';
 
 export type DeepResearchTurnState = {
   id: string;
@@ -241,9 +242,18 @@ export function useDeepResearchSession(args: Args) {
   const activeTurn = turns.find((t) => t.status === 'streaming') ?? null;
   const canSubmit = sessionStatus === 'active' && !activeTurn && !pending;
 
+  const effectiveSources = useMemo(() => {
+    const citationUrls = [
+      ...turns.flatMap((t) => t.citation_map),
+      ...Object.values(live).flatMap((buf) => buf.citations),
+    ];
+    return buildEffectiveSources(sources, citationUrls);
+  }, [sources, turns, live]);
+
   return {
     turns,
     sources,
+    effectiveSources,
     live,
     sessionStatus,
     lexiconMd,

@@ -1,11 +1,11 @@
 'use client';
 
+import type { EffectiveSource } from '@/shared/lib/utils/build-effective-sources.util';
 import { CitationProvider } from '@/ui/components/citation.context';
 import { Markdown } from '@/ui/components/markdown';
 import { ReasoningBlock } from '@/ui/views/deep-research/components/reasoning-block.component';
 import { StreamingHeader } from '@/ui/views/deep-research/components/streaming-header.component';
 import type {
-  DeepResearchSourceState,
   DeepResearchTurnState,
   LiveTurnBuffer,
 } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
@@ -13,7 +13,7 @@ import type {
 type Props = {
   turn: DeepResearchTurnState;
   live: LiveTurnBuffer | undefined;
-  sources: DeepResearchSourceState[];
+  sources: EffectiveSource[];
   isActive: boolean;
 };
 

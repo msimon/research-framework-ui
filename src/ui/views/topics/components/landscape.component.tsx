@@ -23,7 +23,7 @@ type Props = {
 export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initialSources }: Props) {
   const {
     landscape,
-    sources,
+    effectiveSources,
     liveReasoning,
     toolCalls,
     error,
@@ -70,7 +70,7 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
       ) : null}
 
       {hasContent ? (
-        <CitationProvider value={{ citationMap, sources }}>
+        <CitationProvider value={{ citationMap, sources: effectiveSources }}>
           <section className="rounded-md border bg-card p-6">
             <Markdown>{displayContent}</Markdown>
           </section>
@@ -95,13 +95,13 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
         </div>
       ) : null}
 
-      {sources.length > 0 ? (
+      {effectiveSources.length > 0 ? (
         <details id="sources" open className="scroll-mt-16 rounded-md border bg-muted/20">
           <summary className="cursor-pointer select-none p-3 text-sm font-medium text-muted-foreground">
-            Sources ({sources.length})
+            Sources ({effectiveSources.length})
           </summary>
           <ul className="flex flex-col divide-y divide-border/40 border-t">
-            {sources.map((source, idx) => (
+            {effectiveSources.map((source, idx) => (
               <li key={source.id} id={`source-${idx + 1}`} className="scroll-mt-16 p-3 text-sm">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}.</span>

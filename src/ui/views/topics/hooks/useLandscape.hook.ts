@@ -2,11 +2,12 @@
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
+import { buildEffectiveSources } from '@/shared/lib/utils/build-effective-sources.util';
 
 export type LandscapeState = {
   id: string;
@@ -205,10 +206,12 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
   const isWorking = streaming;
 
   const citationMap = streaming ? liveCitations : (landscape?.citation_map ?? []);
+  const effectiveSources = useMemo(() => buildEffectiveSources(sources, citationMap), [sources, citationMap]);
 
   return {
     landscape,
     sources,
+    effectiveSources,
     liveReasoning,
     toolCalls,
     error,

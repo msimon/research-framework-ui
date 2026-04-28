@@ -22,12 +22,22 @@ type Props = {
 };
 
 export function SessionChat(props: Props) {
-  const { turns, sources, live, sessionStatus, lexiconMd, error, pending, activeTurn, canSubmit, submit } =
-    useDeepResearchSession(props);
+  const {
+    turns,
+    effectiveSources,
+    live,
+    sessionStatus,
+    lexiconMd,
+    error,
+    pending,
+    activeTurn,
+    canSubmit,
+    submit,
+  } = useDeepResearchSession(props);
 
   const sections = [
     ...turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` })),
-    ...(sources.length > 0 ? [{ id: 'sources', label: 'Sources' }] : []),
+    ...(effectiveSources.length > 0 ? [{ id: 'sources', label: 'Sources' }] : []),
   ];
 
   return (
@@ -40,7 +50,7 @@ export function SessionChat(props: Props) {
             <TurnBlock
               turn={turn}
               live={live[turn.id]}
-              sources={sources}
+              sources={effectiveSources}
               isActive={activeTurn?.id === turn.id}
             />
           </li>
@@ -69,11 +79,11 @@ export function SessionChat(props: Props) {
         </details>
       ) : null}
 
-      {sources.length > 0 ? (
+      {effectiveSources.length > 0 ? (
         <section id="sources" className="flex scroll-mt-16 flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">Sources</h3>
           <ul className="flex flex-col divide-y divide-border/40 rounded-md border bg-muted/20">
-            {sources.map((source, idx) => (
+            {effectiveSources.map((source, idx) => (
               <li key={source.id} id={`source-${idx + 1}`} className="scroll-mt-16 p-3 text-sm">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}.</span>
