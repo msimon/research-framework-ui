@@ -14,7 +14,7 @@ export const topicCategoryEnum = z.enum([
 export const discoveredTopicSchema = z.object({
   slug: z.string().describe('Short, lowercase, hyphen-separated. Max ~4 words. Unique within the subject.'),
   title: z.string().describe('Human-readable title, 3–8 words.'),
-  category: topicCategoryEnum,
+  category: topicCategoryEnum.catch('other'),
   pitch: z
     .string()
     .describe(

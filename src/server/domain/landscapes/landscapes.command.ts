@@ -2,7 +2,11 @@ import 'server-only';
 import { hasToolCall, stepCountIs, streamText, tool } from 'ai';
 
 import { LANDSCAPE_SYSTEM_PROMPT } from '@/prompts/landscape/landscape.prompt';
-import { type LandscapeUpdates, landscapeUpdatesSchema } from '@/prompts/landscape/landscape.schema';
+import {
+  type LexiconEntry,
+  landscapeUpdatesSchema,
+  type OpenQuestionEntry,
+} from '@/prompts/landscape/landscape.schema';
 import {
   createLandscape,
   findLandscapeByTopic,
@@ -142,7 +146,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     if (!emitCall) {
       throw new Error('Landscape model did not call emit_updates');
     }
-    const updates = emitCall.input as LandscapeUpdates;
+    const updates = landscapeUpdatesSchema.parse(emitCall.input);
 
     const totalUsage = await result.totalUsage;
     const webSearchCount = allToolCalls.filter((c) => c.toolName === 'web_search').length;
@@ -190,17 +194,8 @@ type CompleteLandscapeInput = {
   topicSlug: string;
   contentMd: string;
   briefAppend: string;
-  lexiconAdds: Array<{
-    kind: 'abbreviation' | 'term' | 'entity';
-    label: string;
-    expansion?: string;
-    definition: string;
-  }>;
-  openQuestionAdds: Array<{
-    topicSlug: string;
-    question: string;
-    section: 'key_unknowns' | 'contradictions';
-  }>;
+  lexiconAdds: LexiconEntry[];
+  openQuestionAdds: OpenQuestionEntry[];
   sources: Array<{ url: string; title?: string; snippet?: string }>;
 };
 
