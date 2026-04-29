@@ -12,10 +12,17 @@ export function logCitationDebug(label: string, chunk: unknown): void {
   if (typeof chunk !== 'object' || chunk === null) return;
   const c = chunk as { type?: string; toolName?: string; text?: string };
   if (c.type === 'source') {
-    console.info(`[citation-debug:${label}] source ${JSON.stringify(chunk)}`);
+    console.info(`[citation-debug:${label}] source ${stringify(chunk)}`);
   } else if ((c.type === 'tool-call' || c.type === 'tool-result') && c.toolName === 'web_search') {
-    console.info(`[citation-debug:${label}] ${c.type} ${JSON.stringify(chunk)}`);
+    console.info(`[citation-debug:${label}] ${c.type} ${stringify(chunk)}`);
   } else if (c.type === 'text-delta' && typeof c.text === 'string' && c.text.includes('<cite')) {
-    console.info(`[citation-debug:${label}] text-delta ${JSON.stringify({ text: c.text })}`);
+    console.info(`[citation-debug:${label}] text-delta ${stringify({ text: c.text })}`);
   }
+}
+
+// JSON.stringify with any field whose key starts with `encrypted` redacted
+// to `_encrypted_`. Keeps logs readable — Anthropic's web_search results
+// pack a multi-kilobyte base64 `encryptedContent` blob per result.
+function stringify(value: unknown): string {
+  return JSON.stringify(value, (key, val) => (key.startsWith('encrypted') ? '_encrypted_' : val));
 }
