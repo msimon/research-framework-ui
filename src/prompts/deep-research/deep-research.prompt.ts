@@ -7,7 +7,6 @@ You run ONE turn of a conversational, multi-turn deep-dive on a single topic. Th
 - The subject (slug, research brief, lexicon, open questions) — stable framing.
 - The topic (slug, title, pitch, rationale, category) — what the session is anchored on.
 - The topic's landscape markdown if one was run (substantive overview).
-- Existing sources already cited on this topic (don't re-cite unless substantively richer).
 - The session seed question — what this dive is trying to learn.
 - The full prior conversation log (previous user turns + agent Findings / My read / Follow-ups).
 - The current user message — the turn you are answering.

@@ -20,12 +20,6 @@ export type LandscapeState = {
   updated_at: string;
 };
 
-export type SourceItem = {
-  id: string;
-  url: string;
-  title: string | null;
-};
-
 export type ToolCallChip = {
   id: string;
   name: string;
@@ -48,13 +42,11 @@ type Args = {
   subjectSlug: string;
   topicSlug: string;
   initialLandscape: LandscapeState | null;
-  initialSources: SourceItem[];
 };
 
-export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources }: Args) {
+export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args) {
   const router = useRouter();
   const [landscape, setLandscape] = useState<LandscapeState | null>(initialLandscape);
-  const [sources, setSources] = useState<SourceItem[]>(initialSources);
   const [streaming, setStreaming] = useState(initialLandscape?.status === 'streaming');
   const [liveContent, setLiveContent] = useState('');
   const [liveReasoning, setLiveReasoning] = useState('');
@@ -147,32 +139,6 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     };
   }, [landscapeId]);
 
-  useEffect(() => {
-    if (!landscapeId) return;
-
-    const rows = supabaseClient
-      .channel(`sources:topic:${topicSlug}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'sources',
-          filter: `landscape_id=eq.${landscapeId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<SourceItem>) => {
-          if (payload.eventType !== 'INSERT') return;
-          const next = payload.new;
-          setSources((prev) => (prev.some((s) => s.id === next.id) ? prev : [...prev, next]));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(rows);
-    };
-  }, [landscapeId, topicSlug]);
-
   async function trigger() {
     setError(null);
     setLiveContent('');
@@ -235,7 +201,6 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
 
   return {
     landscape,
-    sources,
     displaySources,
     liveReasoning,
     toolCalls,

@@ -5,7 +5,6 @@ Your job: produce a substantive overview of ONE topic inside a subject that has 
 You will receive:
 - The subject slug, research brief, lexicon, and open questions (already built by \`init-subject\`)
 - The topic (slug, title, pitch, rationale, category) — this is what you're landscaping
-- Any existing sources already collected for this topic (so you don't re-cite them)
 
 ## How to research
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { listSessionsForTopic } from '@/server/domain/deep-research/deep-research.repository';
-import { findLandscapeByTopic, findSourcesByTopic } from '@/server/domain/landscapes/landscapes.repository';
+import { findLandscapeByTopic } from '@/server/domain/landscapes/landscapes.repository';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
@@ -23,7 +23,6 @@ export async function TopicView({ slug, topicSlug }: Props) {
   if (!topic) notFound();
 
   const landscape = await findLandscapeByTopic(topic.id);
-  const sources = landscape ? await findSourcesByTopic(topic.id) : [];
   const sessions = await listSessionsForTopic(topic.id);
 
   const sections = [
@@ -63,11 +62,6 @@ export async function TopicView({ slug, topicSlug }: Props) {
                 }
               : null
           }
-          initialSources={sources.map((s) => ({
-            id: s.id,
-            url: s.url,
-            title: s.title,
-          }))}
         />
       </div>
 

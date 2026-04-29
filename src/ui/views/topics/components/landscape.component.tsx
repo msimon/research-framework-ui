@@ -6,7 +6,6 @@ import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
 import {
   type LandscapeState,
-  type SourceItem,
   type ToolCallChip,
   useLandscape,
 } from '@/ui/views/topics/hooks/useLandscape.hook';
@@ -16,10 +15,9 @@ type Props = {
   topicSlug: string;
   topicId: string;
   initialLandscape: LandscapeState | null;
-  initialSources: SourceItem[];
 };
 
-export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape, initialSources }: Props) {
+export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape }: Props) {
   const {
     landscape,
     displaySources,
@@ -32,7 +30,7 @@ export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape, i
     displayContent,
     hasContent,
     isWorking,
-  } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources });
+  } = useLandscape({ subjectSlug, topicSlug, initialLandscape });
 
   const showExplainer = isWorking && !hasContent;
 

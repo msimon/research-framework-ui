@@ -9,7 +9,6 @@ import {
   createTurn,
   getSessionById,
   getTurnById,
-  insertTurnSources,
   listTurnsForSession,
   updateSession,
   updateTurn,
@@ -153,15 +152,12 @@ export async function closeSession(userId: string, sessionId: string): Promise<v
 
 type CompleteTurnInput = {
   turnId: string;
-  sessionId: string;
-  topicId: string;
   findingsMd: string;
   myReadMd: string;
   followupQuestion: string;
   reasoningMd: string;
   toolCalls: unknown[];
   citationMap: CitationEntry[];
-  citedSources: Array<{ url: string; title: string | null }>;
   supportingSources: Array<{ url: string; title: string | null }>;
   modelUsed: string;
   insights: PersistedInsight[];
@@ -202,18 +198,6 @@ async function completeTurn(input: CompleteTurnInput): Promise<void> {
     if (merged !== input.subjectLexiconMd) {
       await updateSubject(input.subjectId, { lexicon_md: merged });
     }
-  }
-
-  const sourceRows = [...input.citedSources, ...input.supportingSources].map((s) => ({
-    topic_id: input.topicId,
-    turn_id: input.turnId,
-    session_id: input.sessionId,
-    landscape_id: null,
-    url: s.url,
-    title: s.title,
-  }));
-  if (sourceRows.length > 0) {
-    await insertTurnSources(sourceRows);
   }
 }
 
@@ -391,15 +375,12 @@ export async function runDeepResearchTurn(
 
     await completeTurn({
       turnId: input.turnId,
-      sessionId: input.sessionId,
-      topicId: topic.id,
       findingsMd,
       myReadMd: turnOutput.my_read_md,
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,
       toolCalls: toolCallsLog,
       citationMap,
-      citedSources,
       supportingSources: dedupedSupportingSources,
       modelUsed: serverConfig.llm.model,
       insights: turnOutput.insights,

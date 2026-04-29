@@ -1,11 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import {
-  findSessionById,
-  listSourcesForSession,
-  listTurnsForSession,
-} from '@/server/domain/deep-research/deep-research.repository';
+import { findSessionById, listTurnsForSession } from '@/server/domain/deep-research/deep-research.repository';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
@@ -30,7 +26,6 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
   if (!session || session.topic_id !== topic.id) notFound();
 
   const turns = await listTurnsForSession(sessionId);
-  const sources = await listSourcesForSession(sessionId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,12 +66,6 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
           supporting_sources: (t.supporting_sources as SupportingSource[] | null) ?? [],
           status: t.status,
           error_message: t.error_message,
-        }))}
-        initialSources={sources.map((s) => ({
-          id: s.id,
-          turn_id: s.turn_id,
-          url: s.url,
-          title: s.title,
         }))}
       />
     </div>

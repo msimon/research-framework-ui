@@ -5,7 +5,6 @@ import { SectionNav } from '@/ui/components/section-nav';
 import { Composer } from '@/ui/views/deep-research/components/composer.component';
 import { TurnBlock } from '@/ui/views/deep-research/components/turn-block.component';
 import {
-  type DeepResearchSourceState,
   type DeepResearchTurnState,
   useDeepResearchSession,
 } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
@@ -18,7 +17,6 @@ type Props = {
   initialStatus: string;
   initialLexiconMd: string;
   initialTurns: DeepResearchTurnState[];
-  initialSources: DeepResearchSourceState[];
 };
 
 export function SessionChat(props: Props) {

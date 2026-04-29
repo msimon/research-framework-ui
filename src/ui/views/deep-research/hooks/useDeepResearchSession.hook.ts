@@ -23,13 +23,6 @@ export type DeepResearchTurnState = {
   error_message: string | null;
 };
 
-export type DeepResearchSourceState = {
-  id: string;
-  turn_id: string | null;
-  url: string;
-  title: string | null;
-};
-
 export type LiveTurnBuffer = {
   text: string;
   reasoning: string;
@@ -59,12 +52,10 @@ type Args = {
   initialStatus: string;
   initialLexiconMd: string;
   initialTurns: DeepResearchTurnState[];
-  initialSources: DeepResearchSourceState[];
 };
 
 export function useDeepResearchSession(args: Args) {
   const [turns, setTurns] = useState<DeepResearchTurnState[]>(args.initialTurns);
-  const [sources, setSources] = useState<DeepResearchSourceState[]>(args.initialSources);
   const [sessionStatus, setSessionStatus] = useState(args.initialStatus);
   const [lexiconMd, setLexiconMd] = useState(args.initialLexiconMd);
   const [live, setLive] = useState<Record<string, LiveTurnBuffer>>({});
@@ -223,30 +214,6 @@ export function useDeepResearchSession(args: Args) {
     };
   }, [args.subjectId]);
 
-  useEffect(() => {
-    const src = supabaseClient
-      .channel(`sources:session:${args.sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'sources',
-          filter: `session_id=eq.${args.sessionId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<DeepResearchSourceState>) => {
-          if (payload.eventType !== 'INSERT') return;
-          const next = payload.new;
-          setSources((prev) => (prev.some((s) => s.id === next.id) ? prev : [...prev, next]));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(src);
-    };
-  }, [args.sessionId]);
-
   function submit(userText: string) {
     const trimmed = userText.trim();
     if (!trimmed) return;
@@ -265,7 +232,6 @@ export function useDeepResearchSession(args: Args) {
 
   return {
     turns,
-    sources,
     live,
     sessionStatus,
     lexiconMd,

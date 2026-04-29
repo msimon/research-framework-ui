@@ -10,8 +10,6 @@ import {
 import {
   createLandscape,
   findLandscapeByTopic,
-  findSourcesByTopic,
-  insertSources,
   updateLandscape,
 } from '@/server/domain/landscapes/landscapes.repository';
 import { getSubjectById, updateSubject } from '@/server/domain/subjects/subjects.repository';
@@ -31,7 +29,6 @@ import type { Database } from '@/shared/lib/supabase/supabase.types';
 
 type LandscapeRow = Database['public']['Tables']['landscapes']['Row'];
 type SubjectRow = Database['public']['Tables']['subjects']['Row'];
-type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 
 export type RunLandscapeInput = {
   userId: string;
@@ -56,7 +53,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
   const topic = await findTopicBySlug(subject.id, input.topicSlug);
   if (!topic) throw new Error(`Topic ${input.topicSlug} not found`);
 
-  const existingSources = await findSourcesByTopic(topic.id);
   await updateLandscape(input.landscapeId, {
     status: 'streaming',
     content_md: '',
@@ -112,7 +108,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
           rationale: topic.rationale,
           category: topic.category,
         },
-        existingSourceUrls: existingSources.map((s) => s.url),
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
     });
@@ -204,7 +199,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       briefAppend: updates.research_brief_append,
       lexiconAdds: updates.lexicon_adds,
       openQuestionAdds: updates.open_questions_adds,
-      sources: citedSources,
       citationMap,
       supportingSources: dedupedSupporting,
     });
@@ -233,7 +227,6 @@ type CompleteLandscapeInput = {
   briefAppend: string;
   lexiconAdds: LexiconEntry[];
   openQuestionAdds: OpenQuestionEntry[];
-  sources: Array<{ url: string; title: string | null }>;
   citationMap: CitationEntry[];
   supportingSources: Array<{ url: string; title: string | null }>;
 };
@@ -263,24 +256,6 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
   });
 
   await updateTopic(input.topicId, { status: 'landscape' });
-
-  const allSourceRows: SourceInsert[] = [
-    ...input.sources.map((s) => ({
-      topic_id: input.topicId,
-      landscape_id: input.landscapeId,
-      url: s.url,
-      title: s.title,
-    })),
-    ...input.supportingSources.map((s) => ({
-      topic_id: input.topicId,
-      landscape_id: input.landscapeId,
-      url: s.url,
-      title: s.title,
-    })),
-  ];
-  if (allSourceRows.length > 0) {
-    await insertSources(allSourceRows);
-  }
 }
 
 function buildLandscapeMessages(input: {
@@ -289,7 +264,6 @@ function buildLandscapeMessages(input: {
   lexiconMd: string;
   openQuestionsMd: string;
   topic: { slug: string; title: string; pitch: string; rationale: string; category: string };
-  existingSourceUrls: string[];
 }) {
   const stable = [
     `Subject slug: \`${input.subjectSlug}\`.`,
@@ -311,10 +285,6 @@ function buildLandscapeMessages(input: {
     `- **category**: ${input.topic.category}`,
     `- **pitch**: ${input.topic.pitch}`,
     `- **rationale**: ${input.topic.rationale || '_(none)_'}`,
-    '',
-    input.existingSourceUrls.length > 0
-      ? `Existing sources already on this topic (don't re-cite these unless substantively richer):\n${input.existingSourceUrls.map((u) => `- ${u}`).join('\n')}`
-      : 'No sources have been captured on this topic yet.',
     '',
     'Write the full landscape markdown now. When the markdown is complete, call `emit_updates` exactly once with the structured payload.',
   ].join('\n');
