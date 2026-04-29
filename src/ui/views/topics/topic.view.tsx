@@ -9,14 +9,14 @@ import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import type { CitationEntry } from '@/shared/citation.type';
 import { SectionNav } from '@/ui/components/section-nav';
 import { DeepResearchSection } from '@/ui/views/topics/components/deep-research-section.component';
-import { LandscapeView } from '@/ui/views/topics/components/landscape.component';
+import { LandscapeComponent } from '@/ui/views/topics/components/landscape.component';
 
 type Props = {
   slug: string;
   topicSlug: string;
 };
 
-export async function TopicLandscapeView({ slug, topicSlug }: Props) {
+export async function TopicView({ slug, topicSlug }: Props) {
   const userId = await getCurrentUserId();
   const subject = await getSubject(userId, slug);
   const topic = await findTopicBySlug(subject.id, topicSlug);
@@ -44,7 +44,7 @@ export async function TopicLandscapeView({ slug, topicSlug }: Props) {
       <SectionNav sections={sections} />
 
       <div id="landscape" className="scroll-mt-16">
-        <LandscapeView
+        <LandscapeComponent
           subjectSlug={subject.slug}
           topicSlug={topic.slug}
           topicId={topic.id}
@@ -54,6 +54,9 @@ export async function TopicLandscapeView({ slug, topicSlug }: Props) {
                   id: landscape.id,
                   content_md: landscape.content_md,
                   citation_map: (landscape.citation_map as CitationEntry[] | null) ?? [],
+                  supporting_sources:
+                    (landscape.supporting_sources as Array<{ url: string; title: string | null }> | null) ??
+                    [],
                   status: landscape.status,
                   error_message: landscape.error_message,
                   updated_at: landscape.updated_at,

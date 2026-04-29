@@ -12,6 +12,7 @@ import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import type { CitationEntry } from '@/shared/citation.type';
 import { CloseSessionButton } from '@/ui/views/deep-research/components/close-session-button.component';
 import { SessionChat } from '@/ui/views/deep-research/components/session-chat.component';
+import type { SupportingSource } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
 
 type Props = {
   slug: string;
@@ -67,6 +68,7 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
           followup_question: t.followup_question,
           reasoning_md: t.reasoning_md,
           citation_map: (t.citation_map as CitationEntry[] | null) ?? [],
+          supporting_sources: (t.supporting_sources as SupportingSource[] | null) ?? [],
           status: t.status,
           error_message: t.error_message,
         }))}

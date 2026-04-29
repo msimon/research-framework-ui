@@ -44,7 +44,7 @@ _Recent shifts, contested narratives, trends. Dated where possible._
 _What you couldn't resolve, where sources disagree, what to chase next._
 \`\`\`
 
-Cite EVERY sourced claim — every number, every quoted phrase, every dated fact — by wrapping the supporting text in a \`<cite>\` tag, e.g. \`<cite>UnitedHealth's Optum reported 27% YoY growth in Q3 2024</cite>\`. The system captures URL, title, and cited text from \`web_search\` results automatically; if it isn't inside \`<cite>\`, no citation gets recorded. Use plain prose references (e.g. "per CMS's 2024 interoperability rule") only when there's no specific source URL to attribute. The sources list renders separately under the landscape — keep it out of the markdown body.
+Write claims directly in prose. Citations are captured automatically from \`web_search\` results — the system tracks which spans of your output are attributed to which sources via Anthropic's native citation metadata. Don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references, no "## Sources" section); the rendered output and a separate sources list are assembled by the system after streaming completes.
 
 **Term discipline in the body:**
 - When introducing a domain-specific term for the first time, spell it out with the abbreviation in parentheses — e.g. "prior authorization (PA)". Use the abbreviation thereafter.

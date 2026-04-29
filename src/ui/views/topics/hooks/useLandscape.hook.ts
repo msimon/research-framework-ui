@@ -7,12 +7,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-import { buildEffectiveSources } from '@/shared/lib/utils/build-effective-sources.util';
+
+type SupportingSource = { url: string; title: string | null };
 
 export type LandscapeState = {
   id: string;
   content_md: string;
   citation_map: CitationEntry[];
+  supporting_sources: SupportingSource[];
   status: 'pending' | 'streaming' | 'complete' | 'failed' | string;
   error_message: string | null;
   updated_at: string;
@@ -37,7 +39,8 @@ type LandscapeEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
-  | { type: 'citation'; url: string; title: string | null }
+  | { type: 'citation'; url: string; title: string | null; cited_text: string }
+  | { type: 'supporting_source'; url: string; title: string | null }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -56,6 +59,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
   const [liveContent, setLiveContent] = useState('');
   const [liveReasoning, setLiveReasoning] = useState('');
   const [liveCitations, setLiveCitations] = useState<CitationEntry[]>([]);
+  const [liveSupporting, setLiveSupporting] = useState<SupportingSource[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallChip[]>([]);
   const [error, setError] = useState<string | null>(initialLandscape?.error_message ?? null);
   const [reasoningOpen, setReasoningOpen] = useState(true);
@@ -88,7 +92,13 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
             setToolCalls((prev) => prev.map((c) => (c.id === payload.id ? { ...c, resolved: true } : c)));
             break;
           case 'citation':
-            setLiveCitations((prev) => [...prev, { url: payload.url, title: payload.title }]);
+            setLiveCitations((prev) => [
+              ...prev,
+              { url: payload.url, title: payload.title, cited_text: payload.cited_text },
+            ]);
+            break;
+          case 'supporting_source':
+            setLiveSupporting((prev) => [...prev, { url: payload.url, title: payload.title }]);
             break;
           case 'complete':
             setStreaming(false);
@@ -168,6 +178,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     setLiveContent('');
     setLiveReasoning('');
     setLiveCitations([]);
+    setLiveSupporting([]);
     setToolCalls([]);
     setStreaming(true);
     setReasoningOpen(true);
@@ -191,6 +202,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
               id: newId,
               content_md: '',
               citation_map: [],
+              supporting_sources: [],
               status: 'streaming',
               error_message: null,
               updated_at: new Date().toISOString(),
@@ -206,12 +218,25 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
   const isWorking = streaming;
 
   const citationMap = streaming ? liveCitations : (landscape?.citation_map ?? []);
-  const effectiveSources = useMemo(() => buildEffectiveSources(sources, citationMap), [sources, citationMap]);
+  const supportingSources = streaming ? liveSupporting : (landscape?.supporting_sources ?? []);
+  // Single Sources list shown to the user: cited URLs first (with bracket
+  // anchors), then supporting URLs (no anchors). Both deduped by URL.
+  const displaySources = useMemo(() => {
+    const cited = dedupByUrl(citationMap);
+    const citedUrls = new Set(cited.map((s) => s.url));
+    const supporting: Array<{ url: string; title: string | null; cited: boolean }> = [];
+    for (const s of supportingSources) {
+      if (citedUrls.has(s.url)) continue;
+      if (supporting.some((existing) => existing.url === s.url)) continue;
+      supporting.push({ url: s.url, title: s.title, cited: false });
+    }
+    return [...cited.map((s) => ({ ...s, cited: true })), ...supporting];
+  }, [citationMap, supportingSources]);
 
   return {
     landscape,
     sources,
-    effectiveSources,
+    displaySources,
     liveReasoning,
     toolCalls,
     error,
@@ -223,4 +248,15 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     isWorking,
     citationMap,
   };
+}
+
+function dedupByUrl(entries: ReadonlyArray<CitationEntry>): Array<{ url: string; title: string | null }> {
+  const seen = new Set<string>();
+  const out: Array<{ url: string; title: string | null }> = [];
+  for (const e of entries) {
+    if (seen.has(e.url)) continue;
+    seen.add(e.url);
+    out.push({ url: e.url, title: e.title });
+  }
+  return out;
 }

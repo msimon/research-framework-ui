@@ -13,7 +13,7 @@ type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 const SESSION_COLUMNS =
   'id, topic_id, seed_question, status, summary_md, turn_count, last_turn_at, closed_at, created_at, updated_at';
 const TURN_COLUMNS =
-  'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, citation_map, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
+  'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, citation_map, supporting_sources, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
 const SOURCE_COLUMNS =
   'id, topic_id, landscape_id, turn_id, session_id, url, title, retrieved_at, created_at, updated_at';
 

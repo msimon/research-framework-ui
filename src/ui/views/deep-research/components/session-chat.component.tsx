@@ -22,23 +22,10 @@ type Props = {
 };
 
 export function SessionChat(props: Props) {
-  const {
-    turns,
-    effectiveSources,
-    live,
-    sessionStatus,
-    lexiconMd,
-    error,
-    pending,
-    activeTurn,
-    canSubmit,
-    submit,
-  } = useDeepResearchSession(props);
+  const { turns, live, sessionStatus, lexiconMd, error, pending, activeTurn, canSubmit, submit } =
+    useDeepResearchSession(props);
 
-  const sections = [
-    ...turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` })),
-    ...(effectiveSources.length > 0 ? [{ id: 'sources', label: 'Sources' }] : []),
-  ];
+  const sections = turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,12 +34,7 @@ export function SessionChat(props: Props) {
       <ol className="flex flex-col gap-6">
         {turns.map((turn) => (
           <li key={turn.id} id={`turn-${turn.turn_number}`} className="scroll-mt-16">
-            <TurnBlock
-              turn={turn}
-              live={live[turn.id]}
-              sources={effectiveSources}
-              isActive={activeTurn?.id === turn.id}
-            />
+            <TurnBlock turn={turn} live={live[turn.id]} isActive={activeTurn?.id === turn.id} />
           </li>
         ))}
       </ol>
@@ -77,29 +59,6 @@ export function SessionChat(props: Props) {
           </summary>
           <Markdown className="mt-3">{lexiconMd}</Markdown>
         </details>
-      ) : null}
-
-      {effectiveSources.length > 0 ? (
-        <section id="sources" className="flex scroll-mt-16 flex-col gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Sources</h3>
-          <ul className="flex flex-col divide-y divide-border/40 rounded-md border bg-muted/20">
-            {effectiveSources.map((source, idx) => (
-              <li key={source.id} id={`source-${idx + 1}`} className="scroll-mt-16 p-3 text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}.</span>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium hover:underline"
-                  >
-                    {source.title || source.url}
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
       ) : null}
     </div>
   );

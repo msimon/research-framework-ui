@@ -1,12 +1,13 @@
 'use client';
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-import { buildEffectiveSources } from '@/shared/lib/utils/build-effective-sources.util';
+
+export type SupportingSource = { url: string; title: string | null };
 
 export type DeepResearchTurnState = {
   id: string;
@@ -17,6 +18,7 @@ export type DeepResearchTurnState = {
   followup_question: string | null;
   reasoning_md: string | null;
   citation_map: CitationEntry[];
+  supporting_sources: SupportingSource[];
   status: string;
   error_message: string | null;
 };
@@ -33,6 +35,7 @@ export type LiveTurnBuffer = {
   reasoning: string;
   toolCalls: Array<{ id: string; name: string; query: string; resolved: boolean }>;
   citations: CitationEntry[];
+  supporting: SupportingSource[];
 };
 
 type SessionEvent =
@@ -41,7 +44,8 @@ type SessionEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
-  | { type: 'citation'; url: string; title: string | null }
+  | { type: 'citation'; url: string; title: string | null; cited_text: string }
+  | { type: 'supporting_source'; url: string; title: string | null }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -74,7 +78,13 @@ export function useDeepResearchSession(args: Args) {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
         setLive((prev) => {
-          const existing = prev[turnId] ?? { text: '', reasoning: '', toolCalls: [], citations: [] };
+          const existing = prev[turnId] ?? {
+            text: '',
+            reasoning: '',
+            toolCalls: [],
+            citations: [],
+            supporting: [],
+          };
           switch (payload.type) {
             case 'text':
               return { ...prev, [turnId]: { ...existing, text: existing.text + payload.delta } };
@@ -111,7 +121,18 @@ export function useDeepResearchSession(args: Args) {
                 ...prev,
                 [turnId]: {
                   ...existing,
-                  citations: [...existing.citations, { url: payload.url, title: payload.title }],
+                  citations: [
+                    ...existing.citations,
+                    { url: payload.url, title: payload.title, cited_text: payload.cited_text },
+                  ],
+                },
+              };
+            case 'supporting_source':
+              return {
+                ...prev,
+                [turnId]: {
+                  ...existing,
+                  supporting: [...existing.supporting, { url: payload.url, title: payload.title }],
                 },
               };
             default:
@@ -242,18 +263,9 @@ export function useDeepResearchSession(args: Args) {
   const activeTurn = turns.find((t) => t.status === 'streaming') ?? null;
   const canSubmit = sessionStatus === 'active' && !activeTurn && !pending;
 
-  const effectiveSources = useMemo(() => {
-    const citationUrls = [
-      ...turns.flatMap((t) => t.citation_map),
-      ...Object.values(live).flatMap((buf) => buf.citations),
-    ];
-    return buildEffectiveSources(sources, citationUrls);
-  }, [sources, turns, live]);
-
   return {
     turns,
     sources,
-    effectiveSources,
     live,
     sessionStatus,
     lexiconMd,

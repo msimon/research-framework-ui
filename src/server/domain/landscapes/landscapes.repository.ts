@@ -8,7 +8,7 @@ type SourceRow = Database['public']['Tables']['sources']['Row'];
 type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 
 const LANDSCAPE_COLUMNS =
-  'id, topic_id, content_md, citation_map, status, workflow_instance_id, error_message, created_at, updated_at';
+  'id, topic_id, content_md, citation_map, supporting_sources, status, workflow_instance_id, error_message, created_at, updated_at';
 const SOURCE_COLUMNS =
   'id, topic_id, landscape_id, turn_id, session_id, url, title, retrieved_at, created_at, updated_at';
 

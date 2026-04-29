@@ -22,7 +22,9 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
-import { dedupeCitations } from '@/server/lib/utils/dedupe-citations.util';
+import { waitForBroadcastSubscription } from '@/server/infra/supabase/realtime.utils';
+import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
+import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
 import { logCitationDebug } from '@/server/lib/utils/log-citation-debug.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
@@ -75,19 +77,17 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
   };
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      broadcast.subscribe((status) => {
-        if (status === 'SUBSCRIBED') resolve();
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          reject(new Error(`Broadcast channel ${status}`));
-        }
-      });
-    });
+    await waitForBroadcastSubscription(broadcast);
 
     send({ type: 'status', status: 'streaming' });
 
-    let markdown = '';
-    const citationsLog: CitationEntry[] = [];
+    const blocks: CitationBlock[] = [];
+    const blockById = new Map<string, CitationBlock>();
+    let currentBlockId: string | null = null;
+    // Search-result URLs returned by web_search but never attached as a
+    // citation. Surfaced to the UI as "supporting material" under the cited
+    // sources list.
+    const supportingSources: Array<{ url: string; title: string | null }> = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -115,39 +115,62 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
         existingSourceUrls: existingSources.map((s) => s.url),
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
-      onChunk({ chunk }) {
-        logCitationDebug(`landscape:${input.landscapeId}`, chunk);
-        if (chunk.type === 'text-delta') {
-          markdown += chunk.text;
-          send({ type: 'text', delta: chunk.text });
-        } else if (chunk.type === 'reasoning-delta') {
-          send({ type: 'reasoning', delta: chunk.text });
-        } else if (chunk.type === 'tool-call') {
-          if (chunk.toolName === 'web_search') {
-            send({
-              type: 'tool_call',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-              input: chunk.input,
-            });
-          }
-        } else if (chunk.type === 'tool-result') {
-          if (chunk.toolName === 'web_search') {
-            send({
-              type: 'tool_result',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-            });
-          }
-        } else if (chunk.type === 'source' && chunk.sourceType === 'url') {
-          const entry: CitationEntry = { url: chunk.url, title: chunk.title ?? null };
-          citationsLog.push(entry);
-          send({ type: 'citation', ...entry });
-        }
-      },
     });
 
-    await result.consumeStream();
+    for await (const part of result.fullStream) {
+      logCitationDebug(`landscape:${input.landscapeId}`, part);
+      if (part.type === 'text-start') {
+        const block: CitationBlock = { text: '', citations: [] };
+        blocks.push(block);
+        blockById.set(part.id, block);
+        currentBlockId = part.id;
+      } else if (part.type === 'text-end') {
+        if (currentBlockId === part.id) currentBlockId = null;
+      } else if (part.type === 'text-delta') {
+        const block = blockById.get(part.id);
+        if (block) block.text += part.text;
+        send({ type: 'text', delta: part.text });
+      } else if (part.type === 'reasoning-delta') {
+        send({ type: 'reasoning', delta: part.text });
+      } else if (part.type === 'tool-call') {
+        if (part.toolName === 'web_search') {
+          send({
+            type: 'tool_call',
+            id: part.toolCallId,
+            name: part.toolName,
+            input: part.input,
+          });
+        }
+      } else if (part.type === 'tool-result') {
+        if (part.toolName === 'web_search') {
+          send({
+            type: 'tool_result',
+            id: part.toolCallId,
+            name: part.toolName,
+          });
+        }
+      } else if (part.type === 'source' && part.sourceType === 'url') {
+        const citedText = (part.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
+          ?.citedText;
+        if (typeof citedText === 'string' && currentBlockId !== null) {
+          // Citation-flavored: attach to the current text block.
+          const block = blockById.get(currentBlockId);
+          if (!block) continue;
+          const entry: CitationEntry = {
+            url: part.url,
+            title: part.title ?? null,
+            cited_text: citedText,
+          };
+          block.citations.push(entry);
+          send({ type: 'citation', ...entry });
+        } else {
+          // Search-result-flavored: track for the supporting-material list.
+          const entry = { url: part.url, title: part.title ?? null };
+          supportingSources.push(entry);
+          send({ type: 'supporting_source', ...entry });
+        }
+      }
+    }
 
     const steps = await result.steps;
     const allToolCalls = steps.flatMap((s) => s.toolCalls);
@@ -163,7 +186,8 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       `[landscape] subject=${subject.slug} topic=${topic.slug} steps=${steps.length} web_search=${webSearchCount} input_tokens=${totalUsage.inputTokens ?? 0} cached_input_tokens=${totalUsage.cachedInputTokens ?? 0} output_tokens=${totalUsage.outputTokens ?? 0}`,
     );
 
-    const dedupedSources = dedupeCitations(citationsLog);
+    const { markdown, sources: citedSources, citationMap } = buildCitationOutput(blocks);
+    const dedupedSupporting = dedupSupportingAgainstCited(supportingSources, citedSources);
 
     await completeLandscape({
       landscapeId: input.landscapeId,
@@ -180,8 +204,9 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       briefAppend: updates.research_brief_append,
       lexiconAdds: updates.lexicon_adds,
       openQuestionAdds: updates.open_questions_adds,
-      sources: dedupedSources,
-      citationMap: citationsLog,
+      sources: citedSources,
+      citationMap,
+      supportingSources: dedupedSupporting,
     });
 
     send({ type: 'complete' });
@@ -210,6 +235,7 @@ type CompleteLandscapeInput = {
   openQuestionAdds: OpenQuestionEntry[];
   sources: Array<{ url: string; title: string | null }>;
   citationMap: CitationEntry[];
+  supportingSources: Array<{ url: string; title: string | null }>;
 };
 
 async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
@@ -231,20 +257,29 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
   await updateLandscape(input.landscapeId, {
     content_md: input.contentMd,
     citation_map: input.citationMap,
+    supporting_sources: input.supportingSources,
     status: 'complete',
     error_message: null,
   });
 
   await updateTopic(input.topicId, { status: 'landscape' });
 
-  if (input.sources.length > 0) {
-    const rows: SourceInsert[] = input.sources.map((s) => ({
+  const allSourceRows: SourceInsert[] = [
+    ...input.sources.map((s) => ({
       topic_id: input.topicId,
       landscape_id: input.landscapeId,
       url: s.url,
       title: s.title,
-    }));
-    await insertSources(rows);
+    })),
+    ...input.supportingSources.map((s) => ({
+      topic_id: input.topicId,
+      landscape_id: input.landscapeId,
+      url: s.url,
+      title: s.title,
+    })),
+  ];
+  if (allSourceRows.length > 0) {
+    await insertSources(allSourceRows);
   }
 }
 

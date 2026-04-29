@@ -96,6 +96,7 @@ export type Database = {
           role: string
           session_id: string
           status: string
+          supporting_sources: Json
           tool_calls: Json
           turn_number: number
           updated_at: string
@@ -116,6 +117,7 @@ export type Database = {
           role: string
           session_id: string
           status?: string
+          supporting_sources?: Json
           tool_calls?: Json
           turn_number: number
           updated_at?: string
@@ -136,6 +138,7 @@ export type Database = {
           role?: string
           session_id?: string
           status?: string
+          supporting_sources?: Json
           tool_calls?: Json
           turn_number?: number
           updated_at?: string
@@ -198,6 +201,7 @@ export type Database = {
           error_message: string | null
           id: string
           status: string
+          supporting_sources: Json
           topic_id: string
           updated_at: string
           workflow_instance_id: string | null
@@ -209,6 +213,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           status?: string
+          supporting_sources?: Json
           topic_id: string
           updated_at?: string
           workflow_instance_id?: string | null
@@ -220,6 +225,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           status?: string
+          supporting_sources?: Json
           topic_id?: string
           updated_at?: string
           workflow_instance_id?: string | null

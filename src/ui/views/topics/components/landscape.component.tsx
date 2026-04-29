@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { CitationProvider } from '@/ui/components/citation.context';
 import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
 import {
@@ -20,10 +19,10 @@ type Props = {
   initialSources: SourceItem[];
 };
 
-export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initialSources }: Props) {
+export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape, initialSources }: Props) {
   const {
     landscape,
-    effectiveSources,
+    displaySources,
     liveReasoning,
     toolCalls,
     error,
@@ -33,7 +32,6 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
     displayContent,
     hasContent,
     isWorking,
-    citationMap,
   } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialSources });
 
   const showExplainer = isWorking && !hasContent;
@@ -70,11 +68,9 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
       ) : null}
 
       {hasContent ? (
-        <CitationProvider value={{ citationMap, sources: effectiveSources }}>
-          <section className="rounded-md border bg-card p-6">
-            <Markdown>{displayContent}</Markdown>
-          </section>
-        </CitationProvider>
+        <section className="rounded-md border bg-card p-6">
+          <Markdown>{displayContent}</Markdown>
+        </section>
       ) : null}
 
       {error ? (
@@ -95,27 +91,42 @@ export function LandscapeView({ subjectSlug, topicSlug, initialLandscape, initia
         </div>
       ) : null}
 
-      {effectiveSources.length > 0 ? (
+      {displaySources.length > 0 ? (
         <details id="sources" open className="scroll-mt-16 rounded-md border bg-muted/20">
           <summary className="cursor-pointer select-none p-3 text-sm font-medium text-muted-foreground">
-            Sources ({effectiveSources.length})
+            Sources ({displaySources.length})
           </summary>
           <ul className="flex flex-col divide-y divide-border/40 border-t">
-            {effectiveSources.map((source, idx) => (
-              <li key={source.id} id={`source-${idx + 1}`} className="scroll-mt-16 p-3 text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}.</span>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium hover:underline"
-                  >
-                    {source.title || source.url}
-                  </a>
-                </div>
-              </li>
-            ))}
+            {displaySources.map((source, idx) => {
+              // Cited URLs come first in the list and get bracket-anchor ids
+              // matching the [N] links baked into content_md. Supporting URLs
+              // are listed below without anchor ids — they're context, not
+              // referenced inline.
+              const citedPosition = source.cited
+                ? displaySources.slice(0, idx + 1).filter((s) => s.cited).length
+                : null;
+              return (
+                <li
+                  key={source.url}
+                  id={citedPosition !== null ? `source-${citedPosition}` : undefined}
+                  className="scroll-mt-16 p-3 text-sm"
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {citedPosition !== null ? `${citedPosition}.` : '·'}
+                    </span>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:underline"
+                    >
+                      {source.title || source.url}
+                    </a>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </details>
       ) : null}
