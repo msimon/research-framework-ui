@@ -248,7 +248,7 @@ export async function runDeepResearchTurn(
     let markerFound = false;
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
-    const citationsLog: Array<{ url: string; title: string | null; cited_text: string }> = [];
+    const citationsLog: CitationEntry[] = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -316,14 +316,7 @@ export async function runDeepResearchTurn(
             });
           }
         } else if (chunk.type === 'source' && chunk.sourceType === 'url') {
-          const citedText = (chunk.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
-            ?.citedText;
-          if (typeof citedText !== 'string') return;
-          const entry = {
-            url: chunk.url,
-            title: chunk.title ?? null,
-            cited_text: citedText,
-          };
+          const entry: CitationEntry = { url: chunk.url, title: chunk.title ?? null };
           citationsLog.push(entry);
           send({ type: 'citation', ...entry });
         }
@@ -349,10 +342,6 @@ export async function runDeepResearchTurn(
     const findingsMd = endMatch ? finalText.slice(endMatch.index + endMatch[0].length) : finalText;
 
     const dedupedSources = dedupeCitations(citationsLog);
-    const citationMap: CitationEntry[] = citationsLog.map((c) => ({
-      url: c.url,
-      cited_text: c.cited_text,
-    }));
 
     await completeTurn({
       turnId: input.turnId,
@@ -361,7 +350,7 @@ export async function runDeepResearchTurn(
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,
       toolCalls: toolCallsLog,
-      citationMap,
+      citationMap: citationsLog,
       modelUsed: serverConfig.llm.model,
       insights: turnOutput.insights,
       lexiconAdds: turnOutput.lexicon_adds,

@@ -41,7 +41,7 @@ type SessionEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
-  | { type: 'citation'; url: string; title: string | null; cited_text: string }
+  | { type: 'citation'; url: string; title: string | null }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -111,7 +111,7 @@ export function useDeepResearchSession(args: Args) {
                 ...prev,
                 [turnId]: {
                   ...existing,
-                  citations: [...existing.citations, { url: payload.url, cited_text: payload.cited_text }],
+                  citations: [...existing.citations, { url: payload.url, title: payload.title }],
                 },
               };
             default:

@@ -44,7 +44,7 @@ _Recent shifts, contested narratives, trends. Dated where possible._
 _What you couldn't resolve, where sources disagree, what to chase next._
 \`\`\`
 
-Cite supporting claims inline in the markdown by wrapping the claim in \`<cite>\` tags — e.g. \`<cite>UnitedHealth's Optum reported 27% YoY growth in Q3 2024</cite>\`. Inline references in prose are also fine (e.g. "per CMS's 2024 interoperability rule"). The sources list renders separately under the landscape — keep it out of the markdown body.
+Cite EVERY sourced claim — every number, every quoted phrase, every dated fact — by wrapping the supporting text in a \`<cite>\` tag, e.g. \`<cite>UnitedHealth's Optum reported 27% YoY growth in Q3 2024</cite>\`. The system captures URL, title, and cited text from \`web_search\` results automatically; if it isn't inside \`<cite>\`, no citation gets recorded. Use plain prose references (e.g. "per CMS's 2024 interoperability rule") only when there's no specific source URL to attribute. The sources list renders separately under the landscape — keep it out of the markdown body.
 
 **Term discipline in the body:**
 - When introducing a domain-specific term for the first time, spell it out with the abbreviation in parentheses — e.g. "prior authorization (PA)". Use the abbreviation thereafter.

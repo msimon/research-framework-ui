@@ -37,7 +37,7 @@ type LandscapeEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
-  | { type: 'citation'; url: string; title: string | null; cited_text: string }
+  | { type: 'citation'; url: string; title: string | null }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -88,7 +88,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
             setToolCalls((prev) => prev.map((c) => (c.id === payload.id ? { ...c, resolved: true } : c)));
             break;
           case 'citation':
-            setLiveCitations((prev) => [...prev, { url: payload.url, cited_text: payload.cited_text }]);
+            setLiveCitations((prev) => [...prev, { url: payload.url, title: payload.title }]);
             break;
           case 'complete':
             setStreaming(false);

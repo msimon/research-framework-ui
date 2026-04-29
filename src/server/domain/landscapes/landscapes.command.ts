@@ -87,7 +87,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     send({ type: 'status', status: 'streaming' });
 
     let markdown = '';
-    const citationsLog: Array<{ url: string; title: string | null; cited_text: string }> = [];
+    const citationsLog: CitationEntry[] = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -140,14 +140,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
             });
           }
         } else if (chunk.type === 'source' && chunk.sourceType === 'url') {
-          const citedText = (chunk.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
-            ?.citedText;
-          if (typeof citedText !== 'string') return;
-          const entry = {
-            url: chunk.url,
-            title: chunk.title ?? null,
-            cited_text: citedText,
-          };
+          const entry: CitationEntry = { url: chunk.url, title: chunk.title ?? null };
           citationsLog.push(entry);
           send({ type: 'citation', ...entry });
         }
@@ -171,10 +164,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     );
 
     const dedupedSources = dedupeCitations(citationsLog);
-    const citationMap: CitationEntry[] = citationsLog.map((c) => ({
-      url: c.url,
-      cited_text: c.cited_text,
-    }));
 
     await completeLandscape({
       landscapeId: input.landscapeId,
@@ -192,7 +181,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       lexiconAdds: updates.lexicon_adds,
       openQuestionAdds: updates.open_questions_adds,
       sources: dedupedSources,
-      citationMap,
+      citationMap: citationsLog,
     });
 
     send({ type: 'complete' });
