@@ -401,11 +401,24 @@ Miniflare simulates Workers and Workflows locally — **no Cloudflare account ne
 3. `npm run db:types:generate` — regenerate `src/shared/lib/supabase/supabase.types.ts`
 4. Commit migration + types together
 
+### Applying migrations locally — prefer `db:migration:up` over `db:reset`
+
+The local Supabase Postgres is **shared across all workspaces** (every workspace points at the same `127.0.0.1:54322` instance). `npm run db:reset` drops the entire DB and re-runs every migration + the seed file — fast and clean for a single workspace, but it wipes auth users, subjects, sessions, and any in-flight state every other workspace was relying on. Other agents on adjacent branches will hit "row not found" errors and have to start over.
+
+**Default: `npm run db:migration:up`.** It applies any migrations whose `version` is missing from `supabase_migrations.schema_migrations` against the existing DB, in-place, without touching data. Idempotent and multi-workspace-safe.
+
+**Use `npm run db:reset` only when:**
+
+- You're iterating on an **uncommitted** migration in-place (see the next section — the migrations log already records the old version of that file, so a non-destructive re-apply isn't possible).
+- The schema has actually drifted from `schema_migrations` (e.g. a container snapshot/restore left the migrations log claiming version X is applied while the actual table doesn't reflect it). `db:migration:up` will report "up to date" in that case and silently do nothing — only a reset rebuilds the schema from the migration files.
+
+Before reaching for `db:reset`, **shout in #dev (or wherever the team coordinates) so other workspaces know their data is about to vanish.**
+
 ### Editing vs creating migrations
 
 **Default: always create a new migration file** via `npm run db:migration:new`. Once a migration is committed to git, treat it as immutable — staging/prod record it in `schema_migrations` and editing it causes history divergence that requires `supabase migration repair` to reconcile.
 
-**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` (modified or untracked, not yet committed), edit it in place and run `npm run db:reset`. The migration hasn't reached any remote, so iterating on it in-place is safe.
+**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` (modified or untracked, not yet committed), edit it in place and run `npm run db:reset`. The migration hasn't reached any remote, so iterating on it in-place is safe locally — but `db:reset` still wipes data shared with other workspaces (see the previous section), so coordinate before running it.
 
 Decision rule:
 
