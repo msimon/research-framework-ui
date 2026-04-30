@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { listTopicsForSubject } from '@/server/domain/topics/topics.command';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
+import { LexiconView } from '@/ui/components/lexicon-view.component';
 import { Markdown } from '@/ui/components/markdown';
 import { SectionNav } from '@/ui/components/section-nav';
 import { TopicsSection } from '@/ui/views/subjects/topics-section.view';
@@ -33,7 +34,7 @@ export async function SubjectDetailView({ slug }: Props) {
     { id: 'topics', label: 'Topics' },
     ...(subject.research_brief_md ? [{ id: 'research-brief', label: 'Research brief' }] : []),
     ...(subject.open_questions_md ? [{ id: 'open-questions', label: 'Open questions' }] : []),
-    ...(subject.lexicon_md ? [{ id: 'lexicon', label: 'Lexicon' }] : []),
+    ...(subject.lexicon.length > 0 ? [{ id: 'lexicon', label: 'Lexicon' }] : []),
   ];
 
   return (
@@ -70,11 +71,11 @@ export async function SubjectDetailView({ slug }: Props) {
         </section>
       ) : null}
 
-      {subject.lexicon_md ? (
+      {subject.lexicon.length > 0 ? (
         <section id="lexicon" className="flex scroll-mt-16 flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">Lexicon</h3>
           <div className="rounded-md border bg-muted/20 p-4">
-            <Markdown>{subject.lexicon_md}</Markdown>
+            <LexiconView entries={subject.lexicon} />
           </div>
         </section>
       ) : null}

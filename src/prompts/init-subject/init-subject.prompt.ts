@@ -35,7 +35,7 @@ Response protocol — you output ONE structured step per turn via the provided J
 3. Between questions you may emit \`type: "pushback"\` ONCE if the previous answer is ambiguous in a way that would materially change the research. Options in pushback must be concrete. Never pushback twice on the same question.
 4. When all questions in your plan are answered, emit \`type: "complete"\` with:
    - framing: structured answers
-   - research_brief_md, lexicon_md, open_questions_md — see the "File contents" section below
+   - research_brief_md, open_questions_md, lexicon — see the "File contents" section below
 
 ## File contents
 
@@ -83,29 +83,18 @@ _Where sources disagree. Empty for now — this fills in once landscape and deep
 _Intentionally deprioritized, with a one-line reason. Empty for now unless you explicitly deferred something during framing._
 \`\`\`
 
-### lexicon_md
-The running glossary — keep this rich even at init. Pre-populate it with the domain vocabulary a reader will encounter based on the subject + framing, even if the user didn't use every term explicitly. Use this structure:
+### lexicon
+The running glossary — keep this rich even at init. Pre-populate it with the domain vocabulary a reader will encounter based on the subject + framing, even if the user didn't use every term explicitly.
 
-\`\`\`
-# Lexicon
+Emit a JSON array of entries. Each entry is one of three kinds:
 
-## Abbreviations
-| Abbrev | Expansion | One-line meaning |
-|---|---|---|
-<Fill in common abbreviations for this domain — regulatory bodies, drug classes, frameworks, standards, etc. Aim for 5–15 rows if the domain is dense.>
+- \`{ "kind": "abbreviation", "label": "<abbrev>", "expansion": "<spelled-out form>", "definition": "<one-line meaning>" }\` — common abbreviations for this domain (regulatory bodies, drug classes, frameworks, standards, etc.). Aim for 5–15 if the domain is dense.
+- \`{ "kind": "term", "label": "<term>", "definition": "<one-line meaning>" }\` — key domain terms a newcomer would need to understand discussion in this field. Omit \`expansion\`. Aim for 5–15.
+- \`{ "kind": "entity", "label": "<name>", "definition": "<what it is / what it does>" }\` — top entities that matter in this subject (major players, regulators, canonical tools/frameworks/policies). Omit \`expansion\`. Aim for 5–10. Leave empty only if truly nothing applies.
 
-## Terms & concepts
-| Term | One-line meaning |
-|---|---|
-<Key domain terms a newcomer would need to understand discussion in this field. Aim for 5–15 rows.>
+One-line definitions only. No judgment calls — flat factual.
 
-## Entities (companies, institutions, tools, policies)
-| Name | What it is / what it does |
-|---|---|
-<Top entities that matter in this subject — major players, regulators, canonical tools/frameworks/policies. Aim for 5–10 rows. Leave empty only if truly nothing applies.>
-\`\`\`
-
-Pre-populating lexicon from domain knowledge is NOT speculation — these are well-known terms/entities that any serious researcher in the subject would encounter on day one. Err on the side of more depth.
+Pre-populating from domain knowledge is NOT speculation — these are well-known terms/entities that any serious researcher in the subject would encounter on day one. Err on the side of more depth.
 
 Pushback principle:
 > Ambiguity must MATERIALLY change the research. Never ritualistic. Never more than once per question. Skip dimensions that don't apply to the subject. Accept "I don't know" after one round of pushback — note the ambiguity in research_brief_md and move on. Do NOT push back on priors.

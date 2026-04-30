@@ -1,3 +1,4 @@
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { deriveSlug, isLikelyProblemStatement } from '@/server/domain/subjects/slug';
 import {
   createSubject,
@@ -44,12 +45,17 @@ export async function createSubjectDraft(userId: string, input: CreateSubjectDra
 export async function finalizeSubject(
   subjectId: string,
   framing: Json,
-  docs: { research_brief_md: string; lexicon_md: string; open_questions_md: string; title?: string },
+  docs: {
+    research_brief_md: string;
+    lexicon: LexiconEntry[];
+    open_questions_md: string;
+    title?: string;
+  },
 ) {
   const patch = {
     framing,
     research_brief_md: docs.research_brief_md,
-    lexicon_md: docs.lexicon_md,
+    lexicon: docs.lexicon,
     open_questions_md: docs.open_questions_md,
     status: 'ready' as const,
     ...(docs.title ? { title: docs.title } : {}),

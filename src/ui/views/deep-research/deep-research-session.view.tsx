@@ -53,7 +53,7 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
         topicSlug={topic.slug}
         sessionId={session.id}
         initialStatus={session.status}
-        initialLexiconMd={subject.lexicon_md}
+        initialLexicon={subject.lexicon}
         initialTurns={turns.map((t) => ({
           id: t.id,
           turn_number: t.turn_number,

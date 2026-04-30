@@ -245,7 +245,7 @@ export type Database = {
           created_at: string
           framing: Json
           id: string
-          lexicon_md: string
+          lexicon: Json
           open_questions_md: string
           research_brief_md: string
           seed_problem_statement: string | null
@@ -259,7 +259,7 @@ export type Database = {
           created_at?: string
           framing?: Json
           id?: string
-          lexicon_md?: string
+          lexicon?: Json
           open_questions_md?: string
           research_brief_md?: string
           seed_problem_statement?: string | null
@@ -273,7 +273,7 @@ export type Database = {
           created_at?: string
           framing?: Json
           id?: string
-          lexicon_md?: string
+          lexicon?: Json
           open_questions_md?: string
           research_brief_md?: string
           seed_problem_statement?: string | null
@@ -390,6 +390,356 @@ export type Database = {
     }
     CompositeTypes: {
       [_ in never]: never
+    }
+  }
+  realtime: {
+    Tables: {
+      messages: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_04_29: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_04_30: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_05_01: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_05_02: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_05_03: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schema_migrations: {
+        Row: {
+          inserted_at: string | null
+          version: number
+        }
+        Insert: {
+          inserted_at?: string | null
+          version: number
+        }
+        Update: {
+          inserted_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      subscription: {
+        Row: {
+          action_filter: string | null
+          claims: Json
+          claims_role: unknown
+          created_at: string
+          entity: unknown
+          filters: Database["realtime"]["CompositeTypes"]["user_defined_filter"][]
+          id: number
+          subscription_id: string
+        }
+        Insert: {
+          action_filter?: string | null
+          claims: Json
+          claims_role?: unknown
+          created_at?: string
+          entity: unknown
+          filters?: Database["realtime"]["CompositeTypes"]["user_defined_filter"][]
+          id?: never
+          subscription_id: string
+        }
+        Update: {
+          action_filter?: string | null
+          claims?: Json
+          claims_role?: unknown
+          created_at?: string
+          entity?: unknown
+          filters?: Database["realtime"]["CompositeTypes"]["user_defined_filter"][]
+          id?: never
+          subscription_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      apply_rls: {
+        Args: { max_record_bytes?: number; wal: Json }
+        Returns: Database["realtime"]["CompositeTypes"]["wal_rls"][]
+        SetofOptions: {
+          from: "*"
+          to: "wal_rls"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      broadcast_changes: {
+        Args: {
+          event_name: string
+          level?: string
+          new: Record<string, unknown>
+          old: Record<string, unknown>
+          operation: string
+          table_name: string
+          table_schema: string
+          topic_name: string
+        }
+        Returns: undefined
+      }
+      build_prepared_statement_sql: {
+        Args: {
+          columns: Database["realtime"]["CompositeTypes"]["wal_column"][]
+          entity: unknown
+          prepared_statement_name: string
+        }
+        Returns: string
+      }
+      cast: { Args: { type_: unknown; val: string }; Returns: Json }
+      check_equality_op: {
+        Args: {
+          op: Database["realtime"]["Enums"]["equality_op"]
+          type_: unknown
+          val_1: string
+          val_2: string
+        }
+        Returns: boolean
+      }
+      is_visible_through_filters: {
+        Args: {
+          columns: Database["realtime"]["CompositeTypes"]["wal_column"][]
+          filters: Database["realtime"]["CompositeTypes"]["user_defined_filter"][]
+        }
+        Returns: boolean
+      }
+      list_changes: {
+        Args: {
+          max_changes: number
+          max_record_bytes: number
+          publication: unknown
+          slot_name: unknown
+        }
+        Returns: {
+          errors: string[]
+          is_rls_enabled: boolean
+          slot_changes_count: number
+          subscription_ids: string[]
+          wal: Json
+        }[]
+      }
+      quote_wal2json: { Args: { entity: unknown }; Returns: string }
+      send: {
+        Args: { event: string; payload: Json; private?: boolean; topic: string }
+        Returns: undefined
+      }
+      to_regrole: { Args: { role_name: string }; Returns: unknown }
+      topic: { Args: never; Returns: string }
+    }
+    Enums: {
+      action: "INSERT" | "UPDATE" | "DELETE" | "TRUNCATE" | "ERROR"
+      equality_op: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "in"
+    }
+    CompositeTypes: {
+      user_defined_filter: {
+        column_name: string | null
+        op: Database["realtime"]["Enums"]["equality_op"] | null
+        value: string | null
+      }
+      wal_column: {
+        name: string | null
+        type_name: string | null
+        type_oid: unknown
+        value: Json | null
+        is_pkey: boolean | null
+        is_selectable: boolean | null
+      }
+      wal_rls: {
+        wal: Json | null
+        is_rls_enabled: boolean | null
+        subscription_ids: string[] | null
+        errors: string[] | null
+      }
     }
   }
 }
@@ -517,6 +867,12 @@ export const Constants = {
   },
   public: {
     Enums: {},
+  },
+  realtime: {
+    Enums: {
+      action: ["INSERT", "UPDATE", "DELETE", "TRUNCATE", "ERROR"],
+      equality_op: ["eq", "neq", "lt", "lte", "gt", "gte", "in"],
+    },
   },
 } as const
 

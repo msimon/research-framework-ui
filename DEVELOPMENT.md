@@ -320,6 +320,58 @@ Anthropic does **not** constrain-decode tool outputs against the `inputSchema` �
 - Use indexes on columns referenced by RLS predicates.
 - See the `rls-conventions` skill for examples.
 
+### Typing jsonb columns at the repository boundary
+
+Auto-generated Supabase types render `jsonb` columns as `Json` — too loose for any column with a known shape. Don't propagate that looseness to call sites. Define a domain type in the repository, cast once at the read/write boundary, and have callers consume the typed shape.
+
+```ts
+// ✅ src/server/domain/subjects/subjects.repository.ts
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
+
+type SubjectRow = Database['public']['Tables']['subjects']['Row'];
+type SubjectUpdate = Database['public']['Tables']['subjects']['Update'];
+
+export type Subject = Omit<SubjectRow, 'lexicon'> & { lexicon: LexiconEntry[] };
+export type SubjectPatch = Omit<SubjectUpdate, 'lexicon'> & { lexicon?: LexiconEntry[] };
+
+function fromRow(row: SubjectRow): Subject {
+  return { ...row, lexicon: row.lexicon as LexiconEntry[] };
+}
+
+function toUpdate(patch: SubjectPatch): SubjectUpdate {
+  if (!('lexicon' in patch) || patch.lexicon === undefined) return patch as SubjectUpdate;
+  const { lexicon, ...rest } = patch;
+  return { ...rest, lexicon: lexicon as unknown as Json };
+}
+
+export async function findSubjectById(...): Promise<Subject | null> { /* ... */ return data ? fromRow(data) : null; }
+export async function updateSubject(id, patch: SubjectPatch): Promise<Subject> { /* ... use toUpdate(patch) ... */ }
+```
+
+```ts
+// ❌ Anywhere else
+const lexicon = subject.lexicon as unknown as LexiconEntry[];          // call-site cast — the repo should do this
+await updateSubject(id, { lexicon: merged as unknown as Json });       // call-site cast — the repo should do this
+```
+
+The boundary cast is sound because every write flows through validated entries (Zod-parsed LLM output, or `mergeLexicon` over already-validated entries). The DB shape is trusted.
+
+### Avoid vestigial casts to `Json`
+
+The auto-generated `Json` type is recursive: `string | number | boolean | null | Json[] | { [key: string]: Json | undefined }`. Any value built only out of those pieces — primitives, string arrays, plain objects whose every field is itself JSON-compatible — assigns to `Json` directly. No cast needed.
+
+```ts
+// ✅ Object whose fields are all JSON-compatible — TypeScript accepts the bare value
+const framing = { scope: 'us-rheumatology', priors: ['short-staffed'], depth: 3 };
+await persistFraming(subjectId, framing);
+//                                ^^^^^^^ parameter typed `framing: Json` — accepted as-is
+
+// ❌ Vestigial — `as unknown as Json` is doing nothing here
+await persistFraming(subjectId, framing as unknown as Json);
+```
+
+The cast is only justified when `tsc --noEmit` actually reports an error on the bare value. Workflow: write the bare assignment first, run the typecheck, and only add the cast if the compiler complains. Drive-by `as unknown as Json` casts hide future schema drift — when the source type later loses JSON compatibility (gains a `Date`, a `Map`, a class instance), the compiler should surface that, not the cast suppress it.
+
 ## Development Workflow
 
 ### First-time setup
@@ -408,6 +460,8 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 - New tables include `created_at` / `updated_at` TIMESTAMPTZ with `set_updated_at` / `moddatetime` trigger attached
 - User-owned tables have RLS enabled and a policy keyed on `auth.uid()`, with indexes on the columns the policy references
 - Migration edits target only uncommitted files (`git log --oneline -- <file>` empty). Any change to a committed migration is a new migration instead.
+- `jsonb` columns with a known shape are typed at the repository boundary — define `Foo` / `FooPatch` and a single `fromRow` / `toUpdate` cast site. Call sites consume the typed shape. No `as unknown as LexiconEntry[]` (or equivalent) at call sites.
+- No `as unknown as Json` casts on values whose structure already satisfies the recursive `Json` type. Try the bare assignment first; only cast when `tsc` actually rejects it.
 
 ### Realtime
 

@@ -115,13 +115,13 @@ async function runInitInterviewStep(input: StepInterviewInput): Promise<StepInte
     const turn = await createInterviewTurn({
       subjectId: subject.id,
       turnNumber: nextTurnNumber,
-      agentStep: step as unknown as Json,
+      agentStep: step,
     });
 
     if (step.type === 'complete') {
-      await finalizeSubject(subject.id, step.framing as unknown as Json, {
+      await finalizeSubject(subject.id, step.framing, {
         research_brief_md: step.research_brief_md,
-        lexicon_md: step.lexicon_md,
+        lexicon: step.lexicon,
         open_questions_md: step.open_questions_md,
         title: step.title,
       });

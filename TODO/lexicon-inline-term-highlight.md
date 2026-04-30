@@ -2,7 +2,7 @@
 
 ## Problem
 
-The subject's lexicon (`subjects.lexicon_md`, populated by landscape and deep-research turns via `lexicon_adds`) is currently rendered only as a collapsed `<details>` block at the bottom of the page. The user has to expand it and scroll-search to find a term they don't know. We want lexicon terms to be **highlighted inline wherever they appear** in landscape / deep-research markdown, with the definition surfaced on hover.
+The subject's lexicon (`subjects.lexicon`, a `LexiconEntry[]` jsonb populated by landscape and deep-research turns via `lexicon_adds`) is currently rendered only as a collapsed `<details>` block at the bottom of the page (via the `LexiconView` component). The user has to expand it and scroll-search to find a term they don't know. We want lexicon terms to be **highlighted inline wherever they appear** in landscape / deep-research markdown, with the definition surfaced on hover.
 
 ## What "matching" means
 
@@ -101,10 +101,8 @@ The `LexiconSpan` component reads `data-lexicon-label`, looks up the entry from 
 
 ## Where the lexicon comes from on the page
 
-- Landscape page (`topic.view.tsx` → `Landscape` component): pass `subject.lexicon_md` parsed into entries (or pass the array directly). The lexicon is per-subject.
-- Deep-research session page (`deep-research-session.view.tsx` → `SessionChat`): same — pass the parsed lexicon down.
-
-The lexicon is currently stored as a markdown string in `subjects.lexicon_md`. We may want to also store it as structured JSON (`subjects.lexicon` jsonb of `LexiconEntry[]`) so the rehype plugin doesn't have to re-parse markdown to entries on every render. Decide as part of this work.
+- Landscape page (`topic.view.tsx` → `Landscape` component): pass `subject.lexicon` (already a `LexiconEntry[]` jsonb). The lexicon is per-subject.
+- Deep-research session page (`deep-research-session.view.tsx` → `SessionChat`): same — `subject.lexicon` is already passed down to `useDeepResearchSession` and surfaced as `lexicon` state, with realtime updates wired through `postgres_changes`.
 
 ## Out of scope here
 

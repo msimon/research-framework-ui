@@ -1,6 +1,7 @@
 'use client';
 
-import { Markdown } from '@/ui/components/markdown';
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
+import { LexiconView } from '@/ui/components/lexicon-view.component';
 import { SectionNav } from '@/ui/components/section-nav';
 import { Composer } from '@/ui/views/deep-research/components/composer.component';
 import { TurnBlock } from '@/ui/views/deep-research/components/turn-block.component';
@@ -13,12 +14,12 @@ type Props = {
   topicSlug: string;
   sessionId: string;
   initialStatus: string;
-  initialLexiconMd: string;
+  initialLexicon: LexiconEntry[];
   initialTurns: DeepResearchTurnState[];
 };
 
 export function SessionChat(props: Props) {
-  const { turns, live, sessionStatus, lexiconMd, error, pending, activeTurn, canSubmit, submit } =
+  const { turns, live, sessionStatus, lexicon, error, pending, activeTurn, canSubmit, submit } =
     useDeepResearchSession(props);
 
   const sections = turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` }));
@@ -48,12 +49,12 @@ export function SessionChat(props: Props) {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      {lexiconMd.trim().length > 0 ? (
+      {lexicon.length > 0 ? (
         <details className="rounded-md border bg-muted/20 p-3 text-sm">
           <summary className="cursor-pointer select-none text-sm font-medium text-muted-foreground">
             Lexicon
           </summary>
-          <Markdown className="mt-3">{lexiconMd}</Markdown>
+          <LexiconView className="mt-3" entries={lexicon} />
         </details>
       ) : null}
     </div>
