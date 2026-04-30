@@ -83,6 +83,7 @@ export type Database = {
       }
       deep_research_turns: {
         Row: {
+          citation_map: Json
           created_at: string
           error_message: string | null
           findings_md: string | null
@@ -95,6 +96,7 @@ export type Database = {
           role: string
           session_id: string
           status: string
+          supporting_sources: Json
           tool_calls: Json
           turn_number: number
           updated_at: string
@@ -102,6 +104,7 @@ export type Database = {
           workflow_instance_id: string | null
         }
         Insert: {
+          citation_map?: Json
           created_at?: string
           error_message?: string | null
           findings_md?: string | null
@@ -114,6 +117,7 @@ export type Database = {
           role: string
           session_id: string
           status?: string
+          supporting_sources?: Json
           tool_calls?: Json
           turn_number: number
           updated_at?: string
@@ -121,6 +125,7 @@ export type Database = {
           workflow_instance_id?: string | null
         }
         Update: {
+          citation_map?: Json
           created_at?: string
           error_message?: string | null
           findings_md?: string | null
@@ -133,6 +138,7 @@ export type Database = {
           role?: string
           session_id?: string
           status?: string
+          supporting_sources?: Json
           tool_calls?: Json
           turn_number?: number
           updated_at?: string
@@ -189,31 +195,37 @@ export type Database = {
       }
       landscapes: {
         Row: {
+          citation_map: Json
           content_md: string
           created_at: string
           error_message: string | null
           id: string
           status: string
+          supporting_sources: Json
           topic_id: string
           updated_at: string
           workflow_instance_id: string | null
         }
         Insert: {
+          citation_map?: Json
           content_md?: string
           created_at?: string
           error_message?: string | null
           id?: string
           status?: string
+          supporting_sources?: Json
           topic_id: string
           updated_at?: string
           workflow_instance_id?: string | null
         }
         Update: {
+          citation_map?: Json
           content_md?: string
           created_at?: string
           error_message?: string | null
           id?: string
           status?: string
+          supporting_sources?: Json
           topic_id?: string
           updated_at?: string
           workflow_instance_id?: string | null
@@ -224,77 +236,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: true
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sources: {
-        Row: {
-          created_at: string
-          id: string
-          landscape_id: string | null
-          retrieved_at: string
-          session_id: string | null
-          snippet: string | null
-          title: string | null
-          topic_id: string
-          turn_id: string | null
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          landscape_id?: string | null
-          retrieved_at?: string
-          session_id?: string | null
-          snippet?: string | null
-          title?: string | null
-          topic_id: string
-          turn_id?: string | null
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          landscape_id?: string | null
-          retrieved_at?: string
-          session_id?: string | null
-          snippet?: string | null
-          title?: string | null
-          topic_id?: string
-          turn_id?: string | null
-          updated_at?: string
-          url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sources_landscape_id_fkey"
-            columns: ["landscape_id"]
-            isOneToOne: false
-            referencedRelation: "landscapes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sources_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "deep_research_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sources_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sources_turn_id_fkey"
-            columns: ["turn_id"]
-            isOneToOne: false
-            referencedRelation: "deep_research_turns"
             referencedColumns: ["id"]
           },
         ]

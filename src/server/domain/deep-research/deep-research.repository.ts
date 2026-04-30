@@ -7,15 +7,11 @@ type SessionUpdate = Database['public']['Tables']['deep_research_sessions']['Upd
 type TurnRow = Database['public']['Tables']['deep_research_turns']['Row'];
 type TurnInsert = Database['public']['Tables']['deep_research_turns']['Insert'];
 type TurnUpdate = Database['public']['Tables']['deep_research_turns']['Update'];
-type SourceRow = Database['public']['Tables']['sources']['Row'];
-type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 
 const SESSION_COLUMNS =
   'id, topic_id, seed_question, status, summary_md, turn_count, last_turn_at, closed_at, created_at, updated_at';
 const TURN_COLUMNS =
-  'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
-const SOURCE_COLUMNS =
-  'id, topic_id, landscape_id, turn_id, session_id, url, title, snippet, retrieved_at, created_at, updated_at';
+  'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, citation_map, supporting_sources, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
 
 export async function findSessionById(sessionId: string): Promise<SessionRow | null> {
   const supabase = await supabaseUser();
@@ -77,18 +73,6 @@ export async function listTurnsForSession(sessionId: string): Promise<TurnRow[]>
   return data ?? [];
 }
 
-export async function listSourcesForSession(sessionId: string): Promise<SourceRow[]> {
-  const supabase = await supabaseUser();
-  const { data, error } = await supabase
-    .from('sources')
-    .select(SOURCE_COLUMNS)
-    .eq('session_id', sessionId)
-    .order('retrieved_at', { ascending: true });
-
-  if (error) throw new Error(`Failed to load session sources: ${error.message}`);
-  return data ?? [];
-}
-
 export async function createSession(row: SessionInsert): Promise<SessionRow> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase
@@ -111,15 +95,6 @@ export async function createTurn(row: TurnInsert): Promise<TurnRow> {
 
   if (error) throw new Error(`Failed to create deep-research turn: ${error.message}`);
   return data;
-}
-
-export async function insertTurnSources(rows: SourceInsert[]): Promise<SourceRow[]> {
-  if (rows.length === 0) return [];
-  const supabase = await supabaseUser();
-  const { data, error } = await supabase.from('sources').insert(rows).select(SOURCE_COLUMNS);
-
-  if (error) throw new Error(`Failed to insert turn sources: ${error.message}`);
-  return data ?? [];
 }
 
 export async function updateSession(sessionId: string, patch: SessionUpdate): Promise<SessionRow> {

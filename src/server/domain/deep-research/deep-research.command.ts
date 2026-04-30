@@ -9,7 +9,6 @@ import {
   createTurn,
   getSessionById,
   getTurnById,
-  insertTurnSources,
   listTurnsForSession,
   updateSession,
   updateTurn,
@@ -23,6 +22,10 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
+import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
+import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
+import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
+import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
@@ -153,6 +156,8 @@ type CompleteTurnInput = {
   followupQuestion: string;
   reasoningMd: string;
   toolCalls: unknown[];
+  citationMap: CitationEntry[];
+  supportingSources: Array<{ url: string; title: string | null }>;
   modelUsed: string;
   insights: PersistedInsight[];
   lexiconAdds: LexiconEntry[];
@@ -170,6 +175,8 @@ async function completeTurn(input: CompleteTurnInput): Promise<void> {
     followup_question: input.followupQuestion,
     reasoning_md: input.reasoningMd,
     tool_calls: input.toolCalls as never,
+    citation_map: input.citationMap,
+    supporting_sources: input.supportingSources,
     model_used: input.modelUsed,
     insights: input.insights as never,
     status: 'complete',
@@ -227,14 +234,7 @@ export async function runDeepResearchTurn(
   };
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      broadcast.subscribe((status) => {
-        if (status === 'SUBSCRIBED') resolve();
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          reject(new Error(`Broadcast channel ${status}`));
-        }
-      });
-    });
+    await waitForBroadcastSubscription(broadcast);
 
     send({ type: 'status', status: 'streaming' });
 
@@ -243,6 +243,11 @@ export async function runDeepResearchTurn(
     let markerFound = false;
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
+    // Per-block accumulators (see landscapes.command.ts for the rationale).
+    const blocks: CitationBlock[] = [];
+    const blockById = new Map<string, CitationBlock>();
+    let currentBlockId: string | null = null;
+    const supportingSources: Array<{ url: string; title: string | null }> = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -255,6 +260,11 @@ export async function runDeepResearchTurn(
         }),
       },
       stopWhen: [stepCountIs(15), hasToolCall('emit_turn')],
+      system: {
+        role: 'system',
+        content: DEEP_RESEARCH_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildDeepResearchMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
@@ -273,46 +283,75 @@ export async function runDeepResearchTurn(
         currentUserText: turn.user_text ?? '',
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
-      onChunk({ chunk }) {
-        if (chunk.type === 'text-delta') {
-          if (markerFound) {
-            send({ type: 'text', delta: chunk.text });
-          } else {
-            pending += chunk.text;
-            const match = FINDINGS_MARKER.exec(pending);
-            if (match) {
-              markerFound = true;
-              const after = pending.slice(match.index + match[0].length);
-              pending = '';
-              if (after.length > 0) send({ type: 'text', delta: after });
-            }
-          }
-        } else if (chunk.type === 'reasoning-delta') {
-          reasoningBuffer += chunk.text;
-          send({ type: 'reasoning', delta: chunk.text });
-        } else if (chunk.type === 'tool-call') {
-          if (chunk.toolName === 'web_search') {
-            toolCallsLog.push({ id: chunk.toolCallId, name: chunk.toolName, input: chunk.input });
-            send({
-              type: 'tool_call',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-              input: chunk.input,
-            });
-          }
-        } else if (chunk.type === 'tool-result') {
-          if (chunk.toolName === 'web_search') {
-            send({
-              type: 'tool_result',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-            });
-          }
-        }
-      },
     });
 
-    await result.consumeStream();
+    // Iterate fullStream directly so we receive text-start / text-end events
+    // (block boundaries) — these aren't delivered via the narrower onChunk
+    // callback in @ai-sdk/anthropic 4.0+.
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-start') {
+        const block: CitationBlock = { text: '', citations: [] };
+        blocks.push(block);
+        blockById.set(part.id, block);
+        currentBlockId = part.id;
+      } else if (part.type === 'text-end') {
+        if (currentBlockId === part.id) currentBlockId = null;
+      } else if (part.type === 'text-delta') {
+        const block = blockById.get(part.id);
+        if (block) block.text += part.text;
+        if (markerFound) {
+          send({ type: 'text', delta: part.text });
+        } else {
+          pending += part.text;
+          const match = FINDINGS_MARKER.exec(pending);
+          if (match) {
+            markerFound = true;
+            const after = pending.slice(match.index + match[0].length);
+            pending = '';
+            if (after.length > 0) send({ type: 'text', delta: after });
+          }
+        }
+      } else if (part.type === 'reasoning-delta') {
+        reasoningBuffer += part.text;
+        send({ type: 'reasoning', delta: part.text });
+      } else if (part.type === 'tool-call') {
+        if (part.toolName === 'web_search') {
+          toolCallsLog.push({ id: part.toolCallId, name: part.toolName, input: part.input });
+          send({
+            type: 'tool_call',
+            id: part.toolCallId,
+            name: part.toolName,
+            input: part.input,
+          });
+        }
+      } else if (part.type === 'tool-result') {
+        if (part.toolName === 'web_search') {
+          send({
+            type: 'tool_result',
+            id: part.toolCallId,
+            name: part.toolName,
+          });
+        }
+      } else if (part.type === 'source' && part.sourceType === 'url') {
+        const citedText = (part.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
+          ?.citedText;
+        if (typeof citedText === 'string' && currentBlockId !== null) {
+          const block = blockById.get(currentBlockId);
+          if (!block) continue;
+          const entry: CitationEntry = {
+            url: part.url,
+            title: part.title ?? null,
+            cited_text: citedText,
+          };
+          block.citations.push(entry);
+          send({ type: 'citation', ...entry });
+        } else {
+          const entry = { url: part.url, title: part.title ?? null };
+          supportingSources.push(entry);
+          send({ type: 'supporting_source', ...entry });
+        }
+      }
+    }
 
     const steps = await result.steps;
     const allToolCalls = steps.flatMap((s) => s.toolCalls);
@@ -326,9 +365,16 @@ export async function runDeepResearchTurn(
       `[deep-research] subject=${subject.slug} topic=${topic.slug} session=${session.id} turn=${turn.turn_number} steps=${steps.length} web_search=${webSearchCount} input_tokens=${totalUsage.inputTokens ?? 0} cached_input_tokens=${totalUsage.cachedInputTokens ?? 0} output_tokens=${totalUsage.outputTokens ?? 0}`,
     );
 
-    const finalText = await result.text;
-    const endMatch = FINDINGS_MARKER.exec(finalText);
-    const findingsMd = endMatch ? finalText.slice(endMatch.index + endMatch[0].length) : finalText;
+    // Per-turn Sources lists coexist on the same session page, so anchors
+    // are turn-scoped to stay unique.
+    const {
+      markdown: assembledMd,
+      sources: citedSources,
+      citationMap,
+    } = buildCitationOutput(blocks, `turn-${turn.turn_number}-`);
+    const endMatch = FINDINGS_MARKER.exec(assembledMd);
+    const findingsMd = endMatch ? assembledMd.slice(endMatch.index + endMatch[0].length) : assembledMd;
+    const dedupedSupportingSources = dedupSupportingAgainstCited(supportingSources, citedSources);
 
     await completeTurn({
       turnId: input.turnId,
@@ -337,6 +383,8 @@ export async function runDeepResearchTurn(
       followupQuestion: turnOutput.followup_question,
       reasoningMd: reasoningBuffer,
       toolCalls: toolCallsLog,
+      citationMap,
+      supportingSources: dedupedSupportingSources,
       modelUsed: serverConfig.llm.model,
       insights: turnOutput.insights,
       lexiconAdds: turnOutput.lexicon_adds,
@@ -344,20 +392,6 @@ export async function runDeepResearchTurn(
       subjectLexiconMd: subject.lexicon_md,
       topicTitle: topic.title,
     });
-
-    if (turnOutput.sources.length > 0) {
-      await insertTurnSources(
-        turnOutput.sources.map((s) => ({
-          topic_id: topic.id,
-          turn_id: input.turnId,
-          session_id: input.sessionId,
-          landscape_id: null,
-          url: s.url,
-          title: s.title ?? null,
-          snippet: s.snippet ?? null,
-        })),
-      );
-    }
 
     send({ type: 'complete' });
 
@@ -439,11 +473,6 @@ function buildDeepResearchMessages(input: {
   ].join('\n');
 
   return [
-    {
-      role: 'system' as const,
-      content: DEEP_RESEARCH_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
     {
       role: 'user' as const,
       content: [

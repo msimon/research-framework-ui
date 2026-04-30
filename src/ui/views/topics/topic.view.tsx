@@ -2,27 +2,28 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { listSessionsForTopic } from '@/server/domain/deep-research/deep-research.repository';
-import { findLandscapeByTopic, findSourcesByTopic } from '@/server/domain/landscapes/landscapes.repository';
+import { findLandscapeByTopic } from '@/server/domain/landscapes/landscapes.repository';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
+import type { CitationEntry } from '@/shared/citation.type';
 import { SectionNav } from '@/ui/components/section-nav';
-import { DeepResearchSection } from '@/ui/views/topics/deep-research-section.view';
-import { LandscapeView } from '@/ui/views/topics/landscape.view';
+import type { SupportingSource } from '@/ui/types/supporting-source.type';
+import { DeepResearchSection } from '@/ui/views/topics/components/deep-research-section.component';
+import { Landscape } from '@/ui/views/topics/components/landscape.component';
 
 type Props = {
   slug: string;
   topicSlug: string;
 };
 
-export async function TopicLandscapeView({ slug, topicSlug }: Props) {
+export async function TopicView({ slug, topicSlug }: Props) {
   const userId = await getCurrentUserId();
   const subject = await getSubject(userId, slug);
   const topic = await findTopicBySlug(subject.id, topicSlug);
   if (!topic) notFound();
 
   const landscape = await findLandscapeByTopic(topic.id);
-  const sources = landscape ? await findSourcesByTopic(topic.id) : [];
   const sessions = await listSessionsForTopic(topic.id);
 
   const sections = [
@@ -43,27 +44,22 @@ export async function TopicLandscapeView({ slug, topicSlug }: Props) {
       <SectionNav sections={sections} />
 
       <div id="landscape" className="scroll-mt-16">
-        <LandscapeView
+        <Landscape
           subjectSlug={subject.slug}
           topicSlug={topic.slug}
-          topicId={topic.id}
           initialLandscape={
             landscape
               ? {
                   id: landscape.id,
                   content_md: landscape.content_md,
+                  citation_map: (landscape.citation_map as CitationEntry[] | null) ?? [],
+                  supporting_sources: (landscape.supporting_sources as SupportingSource[] | null) ?? [],
                   status: landscape.status,
                   error_message: landscape.error_message,
                   updated_at: landscape.updated_at,
                 }
               : null
           }
-          initialSources={sources.map((s) => ({
-            id: s.id,
-            url: s.url,
-            title: s.title,
-            snippet: s.snippet,
-          }))}
         />
       </div>
 

@@ -5,7 +5,6 @@ Your job: produce a substantive overview of ONE topic inside a subject that has 
 You will receive:
 - The subject slug, research brief, lexicon, and open questions (already built by \`init-subject\`)
 - The topic (slug, title, pitch, rationale, category) — this is what you're landscaping
-- Any existing sources already collected for this topic (so you don't re-cite them)
 
 ## How to research
 
@@ -44,7 +43,7 @@ _Recent shifts, contested narratives, trends. Dated where possible._
 _What you couldn't resolve, where sources disagree, what to chase next._
 \`\`\`
 
-Do NOT include a "## Sources" section in the markdown body — citations are emitted structurally via \`emit_updates.sources\` and rendered separately. Inline references in prose are fine (e.g. "per CMS's 2024 interoperability rule"), but no dumped URL list at the bottom.
+Write claims directly in prose. Citations are captured automatically from \`web_search\` results — the system tracks which spans of your output are attributed to which sources via the runtime's native citation metadata. Don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references, no "## Sources" section); the rendered output and a separate sources list are assembled by the system after streaming completes.
 
 **Term discipline in the body:**
 - When introducing a domain-specific term for the first time, spell it out with the abbreviation in parentheses — e.g. "prior authorization (PA)". Use the abbreviation thereafter.
@@ -58,7 +57,6 @@ After the markdown is complete, call \`emit_updates\` EXACTLY ONCE with:
 - \`research_brief_append\` — a 5–8 line block to append to the subject's research brief under a \`## <topic title>\` heading. Firmest takeaways only, no hedges, written as claims. If a \`[prior]\` from the brief was stress-tested, note it here: "Stress-tested prior: <prior text> → validated / contested: <reason>".
 - \`lexicon_adds\` — new abbreviations, terms, and entities surfaced during the landscape. Do not duplicate entries already in the lexicon passed in. One-line definitions only.
 - \`open_questions_adds\` — new unknowns / contradictions surfaced. Tag each with the topic slug in brackets — e.g. "[<slug>] Why does payer X allow direct billing when payer Y doesn't?".
-- \`sources\` — every URL you actually relied on while writing the landscape. Title + one-line snippet ("what it told me") for each. This is the canonical citation list; it's rendered alongside the landscape in the UI and accumulates across future deep-research runs on the same topic, so be complete.
 
 Calling \`emit_updates\` ends the skill. Do NOT call \`web_search\` after it.
 

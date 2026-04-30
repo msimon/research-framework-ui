@@ -1,16 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import {
-  findSessionById,
-  listSourcesForSession,
-  listTurnsForSession,
-} from '@/server/domain/deep-research/deep-research.repository';
+import { findSessionById, listTurnsForSession } from '@/server/domain/deep-research/deep-research.repository';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
-import { CloseSessionButton } from '@/ui/views/deep-research/close-session-button.view';
-import { SessionChat } from '@/ui/views/deep-research/session-chat.view';
+import type { CitationEntry } from '@/shared/citation.type';
+import type { SupportingSource } from '@/ui/types/supporting-source.type';
+import { CloseSessionButton } from '@/ui/views/deep-research/components/close-session-button.component';
+import { SessionChat } from '@/ui/views/deep-research/components/session-chat.component';
 
 type Props = {
   slug: string;
@@ -28,7 +26,6 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
   if (!session || session.topic_id !== topic.id) notFound();
 
   const turns = await listTurnsForSession(sessionId);
-  const sources = await listSourcesForSession(sessionId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,15 +62,10 @@ export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Pr
           my_read_md: t.my_read_md,
           followup_question: t.followup_question,
           reasoning_md: t.reasoning_md,
+          citation_map: (t.citation_map as CitationEntry[] | null) ?? [],
+          supporting_sources: (t.supporting_sources as SupportingSource[] | null) ?? [],
           status: t.status,
           error_message: t.error_message,
-        }))}
-        initialSources={sources.map((s) => ({
-          id: s.id,
-          turn_id: s.turn_id,
-          url: s.url,
-          title: s.title,
-          snippet: s.snippet,
         }))}
       />
     </div>

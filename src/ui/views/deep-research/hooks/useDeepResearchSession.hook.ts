@@ -5,32 +5,8 @@ import { useEffect, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-
-export type DeepResearchTurnState = {
-  id: string;
-  turn_number: number;
-  user_text: string | null;
-  findings_md: string | null;
-  my_read_md: string | null;
-  followup_question: string | null;
-  reasoning_md: string | null;
-  status: string;
-  error_message: string | null;
-};
-
-export type DeepResearchSourceState = {
-  id: string;
-  turn_id: string | null;
-  url: string;
-  title: string | null;
-  snippet: string | null;
-};
-
-export type LiveTurnBuffer = {
-  text: string;
-  reasoning: string;
-  toolCalls: Array<{ id: string; name: string; query: string; resolved: boolean }>;
-};
+import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
+import type { LiveTurnBuffer } from '@/ui/views/deep-research/types/live-turn-buffer.type';
 
 type SessionEvent =
   | { type: 'status'; status: string }
@@ -38,6 +14,8 @@ type SessionEvent =
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; id: string; name: string; input?: { query?: string } }
   | { type: 'tool_result'; id: string; name: string }
+  | { type: 'citation'; url: string; title: string | null; cited_text: string }
+  | { type: 'supporting_source'; url: string; title: string | null }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
@@ -51,12 +29,10 @@ type Args = {
   initialStatus: string;
   initialLexiconMd: string;
   initialTurns: DeepResearchTurnState[];
-  initialSources: DeepResearchSourceState[];
 };
 
 export function useDeepResearchSession(args: Args) {
   const [turns, setTurns] = useState<DeepResearchTurnState[]>(args.initialTurns);
-  const [sources, setSources] = useState<DeepResearchSourceState[]>(args.initialSources);
   const [sessionStatus, setSessionStatus] = useState(args.initialStatus);
   const [lexiconMd, setLexiconMd] = useState(args.initialLexiconMd);
   const [live, setLive] = useState<Record<string, LiveTurnBuffer>>({});
@@ -70,7 +46,13 @@ export function useDeepResearchSession(args: Args) {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
         setLive((prev) => {
-          const existing = prev[turnId] ?? { text: '', reasoning: '', toolCalls: [] };
+          const existing = prev[turnId] ?? {
+            text: '',
+            reasoning: '',
+            toolCalls: [],
+            citations: [],
+            supporting: [],
+          };
           switch (payload.type) {
             case 'text':
               return { ...prev, [turnId]: { ...existing, text: existing.text + payload.delta } };
@@ -100,6 +82,25 @@ export function useDeepResearchSession(args: Args) {
                   toolCalls: existing.toolCalls.map((c) =>
                     c.id === payload.id ? { ...c, resolved: true } : c,
                   ),
+                },
+              };
+            case 'citation':
+              return {
+                ...prev,
+                [turnId]: {
+                  ...existing,
+                  citations: [
+                    ...existing.citations,
+                    { url: payload.url, title: payload.title, cited_text: payload.cited_text },
+                  ],
+                },
+              };
+            case 'supporting_source':
+              return {
+                ...prev,
+                [turnId]: {
+                  ...existing,
+                  supporting: [...existing.supporting, { url: payload.url, title: payload.title }],
                 },
               };
             default:
@@ -190,30 +191,6 @@ export function useDeepResearchSession(args: Args) {
     };
   }, [args.subjectId]);
 
-  useEffect(() => {
-    const src = supabaseClient
-      .channel(`sources:session:${args.sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'sources',
-          filter: `session_id=eq.${args.sessionId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<DeepResearchSourceState>) => {
-          if (payload.eventType !== 'INSERT') return;
-          const next = payload.new;
-          setSources((prev) => (prev.some((s) => s.id === next.id) ? prev : [...prev, next]));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(src);
-    };
-  }, [args.sessionId]);
-
   function submit(userText: string) {
     const trimmed = userText.trim();
     if (!trimmed) return;
@@ -232,7 +209,6 @@ export function useDeepResearchSession(args: Args) {
 
   return {
     turns,
-    sources,
     live,
     sessionStatus,
     lexiconMd,

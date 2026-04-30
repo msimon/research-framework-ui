@@ -10,8 +10,6 @@ import {
 import {
   createLandscape,
   findLandscapeByTopic,
-  findSourcesByTopic,
-  insertSources,
   updateLandscape,
 } from '@/server/domain/landscapes/landscapes.repository';
 import { getSubjectById, updateSubject } from '@/server/domain/subjects/subjects.repository';
@@ -22,11 +20,14 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
+import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
+import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
+import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
+import type { CitationEntry } from '@/shared/citation.type';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
 type LandscapeRow = Database['public']['Tables']['landscapes']['Row'];
 type SubjectRow = Database['public']['Tables']['subjects']['Row'];
-type SourceInsert = Database['public']['Tables']['sources']['Insert'];
 
 export type RunLandscapeInput = {
   userId: string;
@@ -51,7 +52,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
   const topic = await findTopicBySlug(subject.id, input.topicSlug);
   if (!topic) throw new Error(`Topic ${input.topicSlug} not found`);
 
-  const existingSources = await findSourcesByTopic(topic.id);
   await updateLandscape(input.landscapeId, {
     status: 'streaming',
     content_md: '',
@@ -72,18 +72,17 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
   };
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      broadcast.subscribe((status) => {
-        if (status === 'SUBSCRIBED') resolve();
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          reject(new Error(`Broadcast channel ${status}`));
-        }
-      });
-    });
+    await waitForBroadcastSubscription(broadcast);
 
     send({ type: 'status', status: 'streaming' });
 
-    let markdown = '';
+    const blocks: CitationBlock[] = [];
+    const blockById = new Map<string, CitationBlock>();
+    let currentBlockId: string | null = null;
+    // Search-result URLs returned by web_search but never attached as a
+    // citation. Surfaced to the UI as "supporting material" under the cited
+    // sources list.
+    const supportingSources: Array<{ url: string; title: string | null }> = [];
 
     const result = streamText({
       model: anthropicModel(),
@@ -96,6 +95,11 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
         }),
       },
       stopWhen: [stepCountIs(20), hasToolCall('emit_updates')],
+      system: {
+        role: 'system',
+        content: LANDSCAPE_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildLandscapeMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
@@ -108,37 +112,63 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
           rationale: topic.rationale,
           category: topic.category,
         },
-        existingSourceUrls: existingSources.map((s) => s.url),
       }),
       providerOptions: { anthropic: anthropicProviderOptions },
-      onChunk({ chunk }) {
-        if (chunk.type === 'text-delta') {
-          markdown += chunk.text;
-          send({ type: 'text', delta: chunk.text });
-        } else if (chunk.type === 'reasoning-delta') {
-          send({ type: 'reasoning', delta: chunk.text });
-        } else if (chunk.type === 'tool-call') {
-          if (chunk.toolName === 'web_search') {
-            send({
-              type: 'tool_call',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-              input: chunk.input,
-            });
-          }
-        } else if (chunk.type === 'tool-result') {
-          if (chunk.toolName === 'web_search') {
-            send({
-              type: 'tool_result',
-              id: chunk.toolCallId,
-              name: chunk.toolName,
-            });
-          }
-        }
-      },
     });
 
-    await result.consumeStream();
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-start') {
+        const block: CitationBlock = { text: '', citations: [] };
+        blocks.push(block);
+        blockById.set(part.id, block);
+        currentBlockId = part.id;
+      } else if (part.type === 'text-end') {
+        if (currentBlockId === part.id) currentBlockId = null;
+      } else if (part.type === 'text-delta') {
+        const block = blockById.get(part.id);
+        if (block) block.text += part.text;
+        send({ type: 'text', delta: part.text });
+      } else if (part.type === 'reasoning-delta') {
+        send({ type: 'reasoning', delta: part.text });
+      } else if (part.type === 'tool-call') {
+        if (part.toolName === 'web_search') {
+          send({
+            type: 'tool_call',
+            id: part.toolCallId,
+            name: part.toolName,
+            input: part.input,
+          });
+        }
+      } else if (part.type === 'tool-result') {
+        if (part.toolName === 'web_search') {
+          send({
+            type: 'tool_result',
+            id: part.toolCallId,
+            name: part.toolName,
+          });
+        }
+      } else if (part.type === 'source' && part.sourceType === 'url') {
+        const citedText = (part.providerMetadata?.anthropic as { citedText?: unknown } | undefined)
+          ?.citedText;
+        if (typeof citedText === 'string' && currentBlockId !== null) {
+          // Citation-flavored: attach to the current text block.
+          const block = blockById.get(currentBlockId);
+          if (!block) continue;
+          const entry: CitationEntry = {
+            url: part.url,
+            title: part.title ?? null,
+            cited_text: citedText,
+          };
+          block.citations.push(entry);
+          send({ type: 'citation', ...entry });
+        } else {
+          // Search-result-flavored: track for the supporting-material list.
+          const entry = { url: part.url, title: part.title ?? null };
+          supportingSources.push(entry);
+          send({ type: 'supporting_source', ...entry });
+        }
+      }
+    }
 
     const steps = await result.steps;
     const allToolCalls = steps.flatMap((s) => s.toolCalls);
@@ -153,6 +183,9 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     console.info(
       `[landscape] subject=${subject.slug} topic=${topic.slug} steps=${steps.length} web_search=${webSearchCount} input_tokens=${totalUsage.inputTokens ?? 0} cached_input_tokens=${totalUsage.cachedInputTokens ?? 0} output_tokens=${totalUsage.outputTokens ?? 0}`,
     );
+
+    const { markdown, sources: citedSources, citationMap } = buildCitationOutput(blocks);
+    const dedupedSupporting = dedupSupportingAgainstCited(supportingSources, citedSources);
 
     await completeLandscape({
       landscapeId: input.landscapeId,
@@ -169,7 +202,8 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       briefAppend: updates.research_brief_append,
       lexiconAdds: updates.lexicon_adds,
       openQuestionAdds: updates.open_questions_adds,
-      sources: updates.sources,
+      citationMap,
+      supportingSources: dedupedSupporting,
     });
 
     send({ type: 'complete' });
@@ -196,7 +230,8 @@ type CompleteLandscapeInput = {
   briefAppend: string;
   lexiconAdds: LexiconEntry[];
   openQuestionAdds: OpenQuestionEntry[];
-  sources: Array<{ url: string; title?: string; snippet?: string }>;
+  citationMap: CitationEntry[];
+  supportingSources: Array<{ url: string; title: string | null }>;
 };
 
 async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
@@ -217,22 +252,13 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
 
   await updateLandscape(input.landscapeId, {
     content_md: input.contentMd,
+    citation_map: input.citationMap,
+    supporting_sources: input.supportingSources,
     status: 'complete',
     error_message: null,
   });
 
   await updateTopic(input.topicId, { status: 'landscape' });
-
-  if (input.sources.length > 0) {
-    const rows: SourceInsert[] = input.sources.map((s) => ({
-      topic_id: input.topicId,
-      landscape_id: input.landscapeId,
-      url: s.url,
-      title: s.title ?? null,
-      snippet: s.snippet ?? null,
-    }));
-    await insertSources(rows);
-  }
 }
 
 function buildLandscapeMessages(input: {
@@ -241,7 +267,6 @@ function buildLandscapeMessages(input: {
   lexiconMd: string;
   openQuestionsMd: string;
   topic: { slug: string; title: string; pitch: string; rationale: string; category: string };
-  existingSourceUrls: string[];
 }) {
   const stable = [
     `Subject slug: \`${input.subjectSlug}\`.`,
@@ -264,19 +289,10 @@ function buildLandscapeMessages(input: {
     `- **pitch**: ${input.topic.pitch}`,
     `- **rationale**: ${input.topic.rationale || '_(none)_'}`,
     '',
-    input.existingSourceUrls.length > 0
-      ? `Existing sources already on this topic (don't re-cite these unless substantively richer):\n${input.existingSourceUrls.map((u) => `- ${u}`).join('\n')}`
-      : 'No sources have been captured on this topic yet.',
-    '',
     'Write the full landscape markdown now. When the markdown is complete, call `emit_updates` exactly once with the structured payload.',
   ].join('\n');
 
   return [
-    {
-      role: 'system' as const,
-      content: LANDSCAPE_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
     {
       role: 'user' as const,
       content: [
