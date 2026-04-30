@@ -238,9 +238,6 @@ export async function runDeepResearchTurn(
 
     send({ type: 'status', status: 'streaming' });
 
-    const FINDINGS_MARKER = /(?:^|\n)# Findings\s*\n+/;
-    let pending = '';
-    let markerFound = false;
     let reasoningBuffer = '';
     const toolCallsLog: Array<{ id: string; name: string; input: unknown }> = [];
     // Per-block accumulators (see landscapes.command.ts for the rationale).
@@ -299,18 +296,7 @@ export async function runDeepResearchTurn(
       } else if (part.type === 'text-delta') {
         const block = blockById.get(part.id);
         if (block) block.text += part.text;
-        if (markerFound) {
-          send({ type: 'text', delta: part.text });
-        } else {
-          pending += part.text;
-          const match = FINDINGS_MARKER.exec(pending);
-          if (match) {
-            markerFound = true;
-            const after = pending.slice(match.index + match[0].length);
-            pending = '';
-            if (after.length > 0) send({ type: 'text', delta: after });
-          }
-        }
+        send({ type: 'text', delta: part.text });
       } else if (part.type === 'reasoning-delta') {
         reasoningBuffer += part.text;
         send({ type: 'reasoning', delta: part.text });
@@ -368,12 +354,10 @@ export async function runDeepResearchTurn(
     // Per-turn Sources lists coexist on the same session page, so anchors
     // are turn-scoped to stay unique.
     const {
-      markdown: assembledMd,
+      markdown: findingsMd,
       sources: citedSources,
       citationMap,
     } = buildCitationOutput(blocks, `turn-${turn.turn_number}-`);
-    const endMatch = FINDINGS_MARKER.exec(assembledMd);
-    const findingsMd = endMatch ? assembledMd.slice(endMatch.index + endMatch[0].length) : assembledMd;
     const dedupedSupportingSources = dedupSupportingAgainstCited(supportingSources, citedSources);
 
     await completeTurn({
