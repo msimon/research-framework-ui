@@ -320,6 +320,58 @@ Anthropic does **not** constrain-decode tool outputs against the `inputSchema` �
 - Use indexes on columns referenced by RLS predicates.
 - See the `rls-conventions` skill for examples.
 
+### Typing jsonb columns at the repository boundary
+
+Auto-generated Supabase types render `jsonb` columns as `Json` — too loose for any column with a known shape. Don't propagate that looseness to call sites. Define a domain type in the repository, cast once at the read/write boundary, and have callers consume the typed shape.
+
+```ts
+// ✅ src/server/domain/subjects/subjects.repository.ts
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
+
+type SubjectRow = Database['public']['Tables']['subjects']['Row'];
+type SubjectUpdate = Database['public']['Tables']['subjects']['Update'];
+
+export type Subject = Omit<SubjectRow, 'lexicon'> & { lexicon: LexiconEntry[] };
+export type SubjectPatch = Omit<SubjectUpdate, 'lexicon'> & { lexicon?: LexiconEntry[] };
+
+function fromRow(row: SubjectRow): Subject {
+  return { ...row, lexicon: row.lexicon as LexiconEntry[] };
+}
+
+function toUpdate(patch: SubjectPatch): SubjectUpdate {
+  if (!('lexicon' in patch) || patch.lexicon === undefined) return patch as SubjectUpdate;
+  const { lexicon, ...rest } = patch;
+  return { ...rest, lexicon: lexicon as unknown as Json };
+}
+
+export async function findSubjectById(...): Promise<Subject | null> { /* ... */ return data ? fromRow(data) : null; }
+export async function updateSubject(id, patch: SubjectPatch): Promise<Subject> { /* ... use toUpdate(patch) ... */ }
+```
+
+```ts
+// ❌ Anywhere else
+const lexicon = subject.lexicon as unknown as LexiconEntry[];          // call-site cast — the repo should do this
+await updateSubject(id, { lexicon: merged as unknown as Json });       // call-site cast — the repo should do this
+```
+
+The boundary cast is sound because every write flows through validated entries (Zod-parsed LLM output, or `mergeLexicon` over already-validated entries). The DB shape is trusted.
+
+### Avoid vestigial casts to `Json`
+
+The auto-generated `Json` type is recursive: `string | number | boolean | null | Json[] | { [key: string]: Json | undefined }`. Any value built only out of those pieces — primitives, string arrays, plain objects whose every field is itself JSON-compatible — assigns to `Json` directly. No cast needed.
+
+```ts
+// ✅ Object whose fields are all JSON-compatible — TypeScript accepts the bare value
+const framing = { scope: 'us-rheumatology', priors: ['short-staffed'], depth: 3 };
+await persistFraming(subjectId, framing);
+//                                ^^^^^^^ parameter typed `framing: Json` — accepted as-is
+
+// ❌ Vestigial — `as unknown as Json` is doing nothing here
+await persistFraming(subjectId, framing as unknown as Json);
+```
+
+The cast is only justified when `tsc --noEmit` actually reports an error on the bare value. Workflow: write the bare assignment first, run the typecheck, and only add the cast if the compiler complains. Drive-by `as unknown as Json` casts hide future schema drift — when the source type later loses JSON compatibility (gains a `Date`, a `Map`, a class instance), the compiler should surface that, not the cast suppress it.
+
 ## Development Workflow
 
 ### First-time setup
@@ -349,11 +401,24 @@ Miniflare simulates Workers and Workflows locally — **no Cloudflare account ne
 3. `npm run db:types:generate` — regenerate `src/shared/lib/supabase/supabase.types.ts`
 4. Commit migration + types together
 
+### Applying migrations locally — prefer `db:migration:up` over `db:reset`
+
+The local Supabase Postgres is **shared across all workspaces** (every workspace points at the same `127.0.0.1:54322` instance). `npm run db:reset` drops the entire DB and re-runs every migration + the seed file — fast and clean for a single workspace, but it wipes auth users, subjects, sessions, and any in-flight state every other workspace was relying on. Other agents on adjacent branches will hit "row not found" errors and have to start over.
+
+**Default: `npm run db:migration:up`.** It applies any migrations whose `version` is missing from `supabase_migrations.schema_migrations` against the existing DB, in-place, without touching data. Idempotent and multi-workspace-safe.
+
+**Use `npm run db:reset` only when:**
+
+- You're iterating on an **uncommitted** migration in-place (see the next section — the migrations log already records the old version of that file, so a non-destructive re-apply isn't possible).
+- The schema has actually drifted from `schema_migrations` (e.g. a container snapshot/restore left the migrations log claiming version X is applied while the actual table doesn't reflect it). `db:migration:up` will report "up to date" in that case and silently do nothing — only a reset rebuilds the schema from the migration files.
+
+Before reaching for `db:reset`, **shout in #dev (or wherever the team coordinates) so other workspaces know their data is about to vanish.**
+
 ### Editing vs creating migrations
 
 **Default: always create a new migration file** via `npm run db:migration:new`. Once a migration is committed to git, treat it as immutable — staging/prod record it in `schema_migrations` and editing it causes history divergence that requires `supabase migration repair` to reconcile.
 
-**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` (modified or untracked, not yet committed), edit it in place and run `npm run db:reset`. The migration hasn't reached any remote, so iterating on it in-place is safe.
+**Exception: uncommitted migrations.** If the migration you want to change is still in `git status` (modified or untracked, not yet committed), edit it in place and run `npm run db:reset`. The migration hasn't reached any remote, so iterating on it in-place is safe locally — but `db:reset` still wipes data shared with other workspaces (see the previous section), so coordinate before running it.
 
 Decision rule:
 
@@ -408,6 +473,8 @@ Single source of truth for `/review-code-change`. Each bullet is a rule to apply
 - New tables include `created_at` / `updated_at` TIMESTAMPTZ with `set_updated_at` / `moddatetime` trigger attached
 - User-owned tables have RLS enabled and a policy keyed on `auth.uid()`, with indexes on the columns the policy references
 - Migration edits target only uncommitted files (`git log --oneline -- <file>` empty). Any change to a committed migration is a new migration instead.
+- `jsonb` columns with a known shape are typed at the repository boundary — define `Foo` / `FooPatch` and a single `fromRow` / `toUpdate` cast site. Call sites consume the typed shape. No `as unknown as LexiconEntry[]` (or equivalent) at call sites.
+- No `as unknown as Json` casts on values whose structure already satisfies the recursive `Json` type. Try the bare assignment first; only cast when `tsc` actually rejects it.
 
 ### Realtime
 

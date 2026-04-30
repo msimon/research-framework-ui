@@ -22,12 +22,12 @@ import {
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
 import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
+import { mergeLexicon } from '@/server/lib/utils/merge-lexicon.util';
 import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
 type LandscapeRow = Database['public']['Tables']['landscapes']['Row'];
-type SubjectRow = Database['public']['Tables']['subjects']['Row'];
 
 export type RunLandscapeInput = {
   userId: string;
@@ -103,7 +103,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       messages: buildLandscapeMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
-        lexiconMd: subject.lexicon_md,
+        lexicon: subject.lexicon,
         openQuestionsMd: subject.open_questions_md,
         topic: {
           slug: topic.slug,
@@ -193,7 +193,7 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
       subjectId: subject.id,
       subject: {
         research_brief_md: subject.research_brief_md,
-        lexicon_md: subject.lexicon_md,
+        lexicon: subject.lexicon,
         open_questions_md: subject.open_questions_md,
       },
       topicTitle: topic.title,
@@ -223,7 +223,7 @@ type CompleteLandscapeInput = {
   landscapeId: string;
   topicId: string;
   subjectId: string;
-  subject: Pick<SubjectRow, 'research_brief_md' | 'lexicon_md' | 'open_questions_md'>;
+  subject: { research_brief_md: string; lexicon: LexiconEntry[]; open_questions_md: string };
   topicTitle: string;
   topicSlug: string;
   contentMd: string;
@@ -241,12 +241,12 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
   const datedHeading = `${heading}\n_landscape run ${datestamp}_`;
 
   const brief = appendTopicSection(input.subject.research_brief_md, datedHeading, input.briefAppend);
-  const lexicon = appendLexicon(input.subject.lexicon_md, heading, input.lexiconAdds);
+  const lexicon = mergeLexicon(input.subject.lexicon, input.lexiconAdds);
   const openQuestions = appendOpenQuestions(input.subject.open_questions_md, input.openQuestionAdds);
 
   await updateSubject(input.subjectId, {
     research_brief_md: brief,
-    lexicon_md: lexicon,
+    lexicon,
     open_questions_md: openQuestions,
   });
 
@@ -264,7 +264,7 @@ async function completeLandscape(input: CompleteLandscapeInput): Promise<void> {
 function buildLandscapeMessages(input: {
   subjectSlug: string;
   researchBriefMd: string;
-  lexiconMd: string;
+  lexicon: LexiconEntry[];
   openQuestionsMd: string;
   topic: { slug: string; title: string; pitch: string; rationale: string; category: string };
 }) {
@@ -275,7 +275,10 @@ function buildLandscapeMessages(input: {
     input.researchBriefMd || '_(empty)_',
     '',
     '## Subject lexicon',
-    input.lexiconMd || '_(empty)_',
+    'Same shape as `lexicon_adds` below. Use it for first-mention discipline and to skip duplicates when emitting `lexicon_adds`.',
+    '```json',
+    JSON.stringify(input.lexicon, null, 2),
+    '```',
     '',
     '## Subject open questions',
     input.openQuestionsMd || '_(empty)_',
@@ -312,54 +315,6 @@ function appendTopicSection(current: string, heading: string, body: string): str
   if (!trimmed) return current;
   const base = current.trimEnd();
   return `${base}\n\n${heading}\n\n${trimmed}\n`;
-}
-
-function appendLexicon(
-  current: string,
-  topicHeading: string,
-  entries: CompleteLandscapeInput['lexiconAdds'],
-): string {
-  if (entries.length === 0) return current;
-
-  const abbreviations = entries.filter((e) => e.kind === 'abbreviation');
-  const terms = entries.filter((e) => e.kind === 'term');
-  const entities = entries.filter((e) => e.kind === 'entity');
-
-  const blocks: string[] = [];
-
-  if (abbreviations.length > 0) {
-    blocks.push(
-      '### Abbreviations',
-      '| Abbrev | Expansion | One-line meaning |',
-      '|---|---|---|',
-      ...abbreviations.map(
-        (e) => `| ${escapeCell(e.label)} | ${escapeCell(e.expansion ?? '')} | ${escapeCell(e.definition)} |`,
-      ),
-    );
-  }
-
-  if (terms.length > 0) {
-    if (blocks.length > 0) blocks.push('');
-    blocks.push(
-      '### Terms & concepts',
-      '| Term | One-line meaning |',
-      '|---|---|',
-      ...terms.map((e) => `| ${escapeCell(e.label)} | ${escapeCell(e.definition)} |`),
-    );
-  }
-
-  if (entities.length > 0) {
-    if (blocks.length > 0) blocks.push('');
-    blocks.push(
-      '### Entities',
-      '| Name | What it is / what it does |',
-      '|---|---|',
-      ...entities.map((e) => `| ${escapeCell(e.label)} | ${escapeCell(e.definition)} |`),
-    );
-  }
-
-  const body = blocks.join('\n');
-  return appendTopicSection(current, topicHeading, body);
 }
 
 function appendOpenQuestions(current: string, entries: CompleteLandscapeInput['openQuestionAdds']): string {
@@ -406,8 +361,4 @@ function appendUnderSection(current: string, heading: string, block: string): st
       .replace(/\n{3,}/g, '\n\n')
       .trimEnd() + '\n'
   );
-}
-
-function escapeCell(value: string): string {
-  return value.replace(/\|/g, '\\|').replace(/\n/g, ' ').trim();
 }

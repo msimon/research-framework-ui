@@ -3,6 +3,7 @@ import { generateText, hasToolCall, stepCountIs, tool } from 'ai';
 
 import { DISCOVER_SYSTEM_PROMPT } from '@/prompts/discover/discover.prompt';
 import { discoverResponseSchema } from '@/prompts/discover/discover.schema';
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { getSubjectById } from '@/server/domain/subjects/subjects.repository';
 import { createTopic, findTopicsBySubject } from '@/server/domain/topics/topics.repository';
 import {
@@ -71,7 +72,7 @@ export async function runDiscover(input: RunDiscoverInput): Promise<RunDiscoverR
         slug: subject.slug,
         seedProblemStatement: subject.seed_problem_statement,
         researchBriefMd: subject.research_brief_md,
-        lexiconMd: subject.lexicon_md,
+        lexicon: subject.lexicon,
         openQuestionsMd: subject.open_questions_md,
         existingTopicSlugs: [...existingSlugs],
         narrowHint: input.narrowHint,
@@ -136,7 +137,7 @@ function buildDiscoverMessages(input: {
   slug: string;
   seedProblemStatement: string | null;
   researchBriefMd: string;
-  lexiconMd: string;
+  lexicon: LexiconEntry[];
   openQuestionsMd: string;
   existingTopicSlugs: string[];
   narrowHint?: string;
@@ -151,7 +152,10 @@ function buildDiscoverMessages(input: {
     input.researchBriefMd || '_(empty)_',
     '',
     '## Lexicon',
-    input.lexiconMd || '_(empty)_',
+    'Domain vocabulary already captured. JSON array of `{ kind, label, expansion?, definition }` entries.',
+    '```json',
+    JSON.stringify(input.lexicon, null, 2),
+    '```',
     '',
     '## Open questions',
     input.openQuestionsMd || '_(empty)_',

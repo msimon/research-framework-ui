@@ -38,7 +38,7 @@ Web UI around the `rf` research framework, running the same pipeline (minus pitc
 
 ```
 subjects(id, user_id, slug, title, seed_problem_statement,
-         framing jsonb, understanding_md, lexicon_md, open_questions_md,
+         framing jsonb, understanding_md, lexicon jsonb, open_questions_md,
          status, created_at, updated_at)
 
 topics(id, subject_id, slug, title, pitch, rationale, parent_topic_id,

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { lexiconEntrySchema } from '@/prompts/landscape/landscape.schema';
+
 export const agentStepSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('plan'),
@@ -51,8 +53,9 @@ export const agentStepSchema = z.discriminatedUnion('type', [
       ),
     options: z
       .array(z.object({ label: z.string(), reason: z.string() }))
-      .min(2)
-      .max(4),
+      .describe(
+        'Concrete interpretations the user picks from. Aim for 2–4. Each option needs a label and a one-sentence reason.',
+      ),
   }),
   z.object({
     type: z.literal('complete'),
@@ -65,7 +68,12 @@ export const agentStepSchema = z.discriminatedUnion('type', [
       synthesis_criteria: z.array(z.string()).optional(),
     }),
     research_brief_md: z.string().describe('Fully populated research brief markdown.'),
-    lexicon_md: z.string().describe('Initial 00-lexicon.md markdown (may be mostly empty).'),
+    lexicon: z
+      .array(lexiconEntrySchema)
+      .default([])
+      .describe(
+        'Initial lexicon entries (abbreviations, terms, entities) for this domain. Pre-populate from domain knowledge — see the lexicon section of the prompt.',
+      ),
     open_questions_md: z
       .string()
       .describe('Initial 00-open-questions.md markdown with the biggest open questions.'),

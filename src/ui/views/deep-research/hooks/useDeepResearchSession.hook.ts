@@ -2,8 +2,8 @@
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useState, useTransition } from 'react';
-
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
+import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { supabaseClient } from '@/shared/lib/supabase/client';
 import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
 import type { LiveTurnBuffer } from '@/ui/views/deep-research/types/live-turn-buffer.type';
@@ -27,14 +27,14 @@ type Args = {
   topicSlug: string;
   sessionId: string;
   initialStatus: string;
-  initialLexiconMd: string;
+  initialLexicon: LexiconEntry[];
   initialTurns: DeepResearchTurnState[];
 };
 
 export function useDeepResearchSession(args: Args) {
   const [turns, setTurns] = useState<DeepResearchTurnState[]>(args.initialTurns);
   const [sessionStatus, setSessionStatus] = useState(args.initialStatus);
-  const [lexiconMd, setLexiconMd] = useState(args.initialLexiconMd);
+  const [lexicon, setLexicon] = useState<LexiconEntry[]>(args.initialLexicon);
   const [live, setLive] = useState<Record<string, LiveTurnBuffer>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -179,9 +179,9 @@ export function useDeepResearchSession(args: Args) {
           table: 'subjects',
           filter: `id=eq.${args.subjectId}`,
         },
-        (payload: RealtimePostgresChangesPayload<{ lexicon_md: string }>) => {
+        (payload: RealtimePostgresChangesPayload<{ lexicon: LexiconEntry[] }>) => {
           if (payload.eventType !== 'UPDATE') return;
-          setLexiconMd(payload.new.lexicon_md);
+          setLexicon(payload.new.lexicon);
         },
       )
       .subscribe();
@@ -211,7 +211,7 @@ export function useDeepResearchSession(args: Args) {
     turns,
     live,
     sessionStatus,
-    lexiconMd,
+    lexicon,
     error,
     pending,
     activeTurn,

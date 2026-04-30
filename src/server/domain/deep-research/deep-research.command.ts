@@ -24,6 +24,7 @@ import {
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
 import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
+import { mergeLexicon } from '@/server/lib/utils/merge-lexicon.util';
 import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
@@ -162,8 +163,7 @@ type CompleteTurnInput = {
   insights: PersistedInsight[];
   lexiconAdds: LexiconEntry[];
   subjectId: string;
-  subjectLexiconMd: string;
-  topicTitle: string;
+  subjectLexicon: LexiconEntry[];
 };
 
 async function completeTurn(input: CompleteTurnInput): Promise<void> {
@@ -189,13 +189,9 @@ async function completeTurn(input: CompleteTurnInput): Promise<void> {
   });
 
   if (input.lexiconAdds.length > 0) {
-    const merged = mergeDeepLexicon({
-      current: input.subjectLexiconMd,
-      topicTitle: input.topicTitle,
-      entries: input.lexiconAdds,
-    });
-    if (merged !== input.subjectLexiconMd) {
-      await updateSubject(input.subjectId, { lexicon_md: merged });
+    const merged = mergeLexicon(input.subjectLexicon, input.lexiconAdds);
+    if (merged !== input.subjectLexicon) {
+      await updateSubject(input.subjectId, { lexicon: merged });
     }
   }
 }
@@ -265,7 +261,7 @@ export async function runDeepResearchTurn(
       messages: buildDeepResearchMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
-        lexiconMd: subject.lexicon_md,
+        lexicon: subject.lexicon,
         openQuestionsMd: subject.open_questions_md,
         topic: {
           slug: topic.slug,
@@ -373,8 +369,7 @@ export async function runDeepResearchTurn(
       insights: turnOutput.insights,
       lexiconAdds: turnOutput.lexicon_adds,
       subjectId: subject.id,
-      subjectLexiconMd: subject.lexicon_md,
-      topicTitle: topic.title,
+      subjectLexicon: subject.lexicon,
     });
 
     send({ type: 'complete' });
@@ -393,7 +388,7 @@ export async function runDeepResearchTurn(
 function buildDeepResearchMessages(input: {
   subjectSlug: string;
   researchBriefMd: string;
-  lexiconMd: string;
+  lexicon: LexiconEntry[];
   openQuestionsMd: string;
   topic: { slug: string; title: string; pitch: string; rationale: string; category: string };
   landscapeMd: string;
@@ -408,7 +403,10 @@ function buildDeepResearchMessages(input: {
     input.researchBriefMd || '_(empty)_',
     '',
     '## Subject lexicon',
-    input.lexiconMd || '_(empty)_',
+    'Same shape as `lexicon_adds` below. Use it for first-mention discipline and to skip duplicates when emitting `lexicon_adds`.',
+    '```json',
+    JSON.stringify(input.lexicon, null, 2),
+    '```',
     '',
     '## Subject open questions',
     input.openQuestionsMd || '_(empty)_',
@@ -508,40 +506,4 @@ function promoteInsightsToBrief(input: {
 
   const base = input.current.trimEnd();
   return `${base}\n\n${heading}\n\n${subheading}\n\n${block}\n`;
-}
-
-function mergeDeepLexicon(input: { current: string; topicTitle: string; entries: LexiconEntry[] }): string {
-  const existingLabels = new Set(
-    [...input.current.matchAll(/(?:^|\n)-\s+\*\*([^*]+?)\*\*/g)].map((m) => m[1].trim().toLowerCase()),
-  );
-  const fresh = input.entries.filter((e) => !existingLabels.has(e.label.trim().toLowerCase()));
-  if (fresh.length === 0) return input.current;
-
-  const bullets = fresh.map((e) => {
-    const expansion = e.expansion ? ` (${e.expansion.trim()})` : '';
-    return `- **${e.label.trim()}**${expansion} — ${e.definition.trim()}`;
-  });
-
-  const heading = `## ${input.topicTitle} — deep research`;
-  const lines = input.current.split('\n');
-  const headingIdx = lines.findIndex((line) => line.trim() === heading);
-
-  if (headingIdx === -1) {
-    const base = input.current.trimEnd();
-    return `${base}\n\n${heading}\n\n${bullets.join('\n')}\n`;
-  }
-
-  const nextHeadingIdx = lines.findIndex((line, idx) => idx > headingIdx && /^##\s/.test(line.trim()));
-  const insertIdx = nextHeadingIdx === -1 ? lines.length : nextHeadingIdx;
-  const before = lines.slice(0, insertIdx);
-  const after = lines.slice(insertIdx);
-  while (before.length > 0 && before[before.length - 1]?.trim() === '') before.pop();
-  before.push('', ...bullets, '');
-
-  return (
-    [...before, ...after]
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trimEnd() + '\n'
-  );
 }
