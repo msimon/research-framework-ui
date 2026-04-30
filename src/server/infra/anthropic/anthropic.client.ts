@@ -14,5 +14,6 @@ export function anthropicWebSearchTool(options?: { maxUses?: number }) {
 }
 
 export const anthropicProviderOptions = {
+  thinking: { type: 'adaptive', display: 'omitted' },
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;
