@@ -95,6 +95,11 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
         }),
       },
       stopWhen: [stepCountIs(20), hasToolCall('emit_updates')],
+      system: {
+        role: 'system',
+        content: LANDSCAPE_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildLandscapeMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
@@ -288,11 +293,6 @@ function buildLandscapeMessages(input: {
   ].join('\n');
 
   return [
-    {
-      role: 'system' as const,
-      content: LANDSCAPE_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
     {
       role: 'user' as const,
       content: [

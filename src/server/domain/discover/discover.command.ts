@@ -62,6 +62,11 @@ export async function runDiscover(input: RunDiscoverInput): Promise<RunDiscoverR
         }),
       },
       stopWhen: [stepCountIs(15), hasToolCall('emit_topics')],
+      system: {
+        role: 'system',
+        content: DISCOVER_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildDiscoverMessages({
         slug: subject.slug,
         seedProblemStatement: subject.seed_problem_statement,
@@ -172,11 +177,6 @@ function buildDiscoverMessages(input: {
   const dynamic = dynamicParts.join('\n');
 
   return [
-    {
-      role: 'system' as const,
-      content: DISCOVER_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
     {
       role: 'user' as const,
       content: [

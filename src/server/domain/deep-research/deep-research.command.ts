@@ -260,6 +260,11 @@ export async function runDeepResearchTurn(
         }),
       },
       stopWhen: [stepCountIs(15), hasToolCall('emit_turn')],
+      system: {
+        role: 'system',
+        content: DEEP_RESEARCH_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildDeepResearchMessages({
         subjectSlug: subject.slug,
         researchBriefMd: subject.research_brief_md,
@@ -468,11 +473,6 @@ function buildDeepResearchMessages(input: {
   ].join('\n');
 
   return [
-    {
-      role: 'system' as const,
-      content: DEEP_RESEARCH_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
     {
       role: 'user' as const,
       content: [

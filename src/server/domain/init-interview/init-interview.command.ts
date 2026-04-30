@@ -97,6 +97,11 @@ async function runInitInterviewStep(input: StepInterviewInput): Promise<StepInte
     const { object } = await generateObject({
       model: anthropicModel(),
       schema: agentStepResponseSchema,
+      system: {
+        role: 'system',
+        content: INIT_SUBJECT_SYSTEM_PROMPT,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
       messages: buildInterviewMessages({
         seedProblemStatement: subject.seed_problem_statement,
         slug: subject.slug,
@@ -156,14 +161,7 @@ function buildInterviewMessages(input: {
           })
           .join('\n\n');
 
-  return [
-    {
-      role: 'system' as const,
-      content: INIT_SUBJECT_SYSTEM_PROMPT,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-    },
-    { role: 'user' as const, content: `${header}\n\n---\nInterview history:\n${historyLines}` },
-  ];
+  return [{ role: 'user' as const, content: `${header}\n\n---\nInterview history:\n${historyLines}` }];
 }
 
 const STARTING_FRESH_CHOICE = "I'm starting fresh";
