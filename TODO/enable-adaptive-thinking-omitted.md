@@ -25,7 +25,7 @@ export const anthropicProviderOptions = {
 } satisfies AnthropicProviderOptions;
 ```
 
-Effects (verified by `scripts/citation-diagnostic.mjs` against opus-4-7):
+Expected effects (previously confirmed by a one-off diagnostic script that's no longer in the repo):
 - The model shifts its preamble narration into the `thinking` content block channel.
 - `display: omitted` tells the API to skip streaming thinking tokens entirely (only sends `content_block_start` / `content_block_stop` markers + signature for multi-turn). About 1.3s faster than `display: summarized`.
 - First user-visible `text-delta` is the real content (e.g. `# Medicare Advantage Star Ratings...`).
@@ -39,16 +39,10 @@ Effects (verified by `scripts/citation-diagnostic.mjs` against opus-4-7):
 
 ## Verification
 
-Before/after, run:
+When picking this up, gate the change behind a quick local landscape run with `display: omitted` and inspect the streamed events (e.g. via the `logStreamEvent` util pattern used during prior debugging — easy to re-add temporarily). The first user-visible `text-delta` should be the canonical heading (`# Landscape` / `# Findings` etc.), not the preamble narration.
 
-```bash
-npm run diag:citations -- "<test question>" omitted
-```
-
-Inspect the resulting `Anthropic-thinking-omitted-*.jsonl` and `Landscape-ai-sdk-thinking-omitted-*.jsonl` files. The first `text_delta` should be the canonical heading (`# ...`), not preamble. Counts of `thinking` content blocks should be > 0 (presence of start/stop markers without thinking content streamed).
-
-The diagnostic script supports four modes for comparison: `off`, `effort_only` (matches current production), `summarized`, `omitted`. Run them and check the summary table for TTFT differences.
+If a more rigorous before/after benchmark is needed, write a small standalone Node script that hits Anthropic directly with each of the four modes (`off`, `effort_only`, `summarized`, `omitted`) and compare TTFT + content-block shape. Don't ship it as a permanent npm script — keep it as a one-off in `.context/` (gitignored) until the change is verified, then delete.
 
 ## Out of scope here
 
-This is independent of the citation work in PR #3 — it's a separate behavioral change that touches the broader chat completion surface. Land it as its own change after the citation PR merges, then re-baseline `scripts/citation-diagnostic.mjs` outputs against the new defaults.
+This is independent of the citation work — it's a separate behavioral change that touches the broader chat completion surface. Land it as its own change.
