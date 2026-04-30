@@ -53,8 +53,9 @@ export const agentStepSchema = z.discriminatedUnion('type', [
       ),
     options: z
       .array(z.object({ label: z.string(), reason: z.string() }))
-      .min(2)
-      .max(4),
+      .describe(
+        'Concrete interpretations the user picks from. Aim for 2–4. Each option needs a label and a one-sentence reason.',
+      ),
   }),
   z.object({
     type: z.literal('complete'),
