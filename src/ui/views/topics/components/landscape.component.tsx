@@ -1,23 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-
 import { Markdown } from '@/ui/components/markdown';
 import { Button } from '@/ui/components/ui/button';
-import {
-  type LandscapeState,
-  type ToolCallChip,
-  useLandscape,
-} from '@/ui/views/topics/hooks/useLandscape.hook';
+import { LandscapeExplainer } from '@/ui/views/topics/components/landscape-explainer.component';
+import { ReasoningBlock } from '@/ui/views/topics/components/reasoning-block.component';
+import { StreamingHeader } from '@/ui/views/topics/components/streaming-header.component';
+import { useLandscape } from '@/ui/views/topics/hooks/useLandscape.hook';
+import type { LandscapeState } from '@/ui/views/topics/types/landscape-state.type';
 
 type Props = {
   subjectSlug: string;
   topicSlug: string;
-  topicId: string;
   initialLandscape: LandscapeState | null;
 };
 
-export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape }: Props) {
+export function Landscape({ subjectSlug, topicSlug, initialLandscape }: Props) {
   const {
     landscape,
     displaySources,
@@ -129,104 +126,5 @@ export function LandscapeComponent({ subjectSlug, topicSlug, initialLandscape }:
         </details>
       ) : null}
     </div>
-  );
-}
-
-function LandscapeExplainer({ toolCalls }: { toolCalls: ToolCallChip[] }) {
-  const [tick, setTick] = useState(0);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 400);
-    return () => clearInterval(id);
-  }, []);
-
-  const dots = tick % 4;
-  const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
-
-  return (
-    <div className="flex flex-col items-center gap-4 rounded-md border bg-muted/20 p-8 text-center">
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-        <span className="tabular-nums">{elapsed}s</span>
-      </div>
-      <div>
-        <p className="text-base font-medium">Mapping the topic landscape{'.'.repeat(dots)}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Researching players, economics, current dynamics, and contested narratives for this topic.
-          <br />
-          You'll get a structured overview with sections and cited sources, plus updates to your subject
-          brief, lexicon, and open questions.
-          <br />
-          This usually takes 90–180 seconds.
-        </p>
-      </div>
-      {toolCalls.length > 0 ? (
-        <ul className="flex flex-wrap justify-center gap-1.5">
-          {toolCalls.map((call) => (
-            <li
-              key={call.id}
-              className={`rounded-full px-2 py-0.5 text-[11px] ${
-                call.resolved ? 'bg-muted text-foreground/80' : 'bg-primary/10 text-primary animate-pulse'
-              }`}
-            >
-              {call.name === 'web_search' ? '🔎 ' : ''}
-              {call.query.length > 60 ? `${call.query.slice(0, 60)}…` : call.query}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function StreamingHeader({ toolCalls }: { toolCalls: ToolCallChip[] }) {
-  const [tick, setTick] = useState(0);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 400);
-    return () => clearInterval(id);
-  }, []);
-
-  const dots = tick % 4;
-  const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-      <div className="flex items-center gap-3">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-        <span className="tabular-nums">{elapsed}s</span>
-        <span>Researching and writing the landscape{'.'.repeat(dots)}</span>
-      </div>
-      {toolCalls.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5">
-          {toolCalls.map((call) => (
-            <li
-              key={call.id}
-              className={`rounded-full px-2 py-0.5 text-[11px] ${
-                call.resolved ? 'bg-muted text-foreground/80' : 'bg-primary/10 text-primary animate-pulse'
-              }`}
-            >
-              {call.name === 'web_search' ? '🔎 ' : ''}
-              {call.query.length > 60 ? `${call.query.slice(0, 60)}…` : call.query}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function ReasoningBlock({ text, open, onToggle }: { text: string; open: boolean; onToggle: () => void }) {
-  return (
-    <details
-      open={open}
-      onToggle={onToggle}
-      className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground"
-    >
-      <summary className="cursor-pointer select-none font-medium">Thinking…</summary>
-      <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{text}</pre>
-    </details>
   );
 }

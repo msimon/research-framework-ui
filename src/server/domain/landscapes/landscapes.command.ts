@@ -20,10 +20,9 @@ import {
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
-import { waitForBroadcastSubscription } from '@/server/infra/supabase/realtime.utils';
 import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
 import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
-import { logCitationDebug } from '@/server/lib/utils/log-citation-debug.util';
+import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
 
@@ -113,7 +112,6 @@ export async function runLandscape(input: RunLandscapeInput): Promise<RunLandsca
     });
 
     for await (const part of result.fullStream) {
-      logCitationDebug(`landscape:${input.landscapeId}`, part);
       if (part.type === 'text-start') {
         const block: CitationBlock = { text: '', citations: [] };
         blocks.push(block);

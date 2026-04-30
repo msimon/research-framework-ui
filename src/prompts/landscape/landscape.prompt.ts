@@ -43,7 +43,7 @@ _Recent shifts, contested narratives, trends. Dated where possible._
 _What you couldn't resolve, where sources disagree, what to chase next._
 \`\`\`
 
-Write claims directly in prose. Citations are captured automatically from \`web_search\` results — the system tracks which spans of your output are attributed to which sources via Anthropic's native citation metadata. Don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references, no "## Sources" section); the rendered output and a separate sources list are assembled by the system after streaming completes.
+Write claims directly in prose. Citations are captured automatically from \`web_search\` results — the system tracks which spans of your output are attributed to which sources via the runtime's native citation metadata. Don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references, no "## Sources" section); the rendered output and a separate sources list are assembled by the system after streaming completes.
 
 **Term discipline in the body:**
 - When introducing a domain-specific term for the first time, spell it out with the abbreviation in parentheses — e.g. "prior authorization (PA)". Use the abbreviation thereafter.

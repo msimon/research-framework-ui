@@ -4,32 +4,9 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useState, useTransition } from 'react';
 
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
-import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-
-export type SupportingSource = { url: string; title: string | null };
-
-export type DeepResearchTurnState = {
-  id: string;
-  turn_number: number;
-  user_text: string | null;
-  findings_md: string | null;
-  my_read_md: string | null;
-  followup_question: string | null;
-  reasoning_md: string | null;
-  citation_map: CitationEntry[];
-  supporting_sources: SupportingSource[];
-  status: string;
-  error_message: string | null;
-};
-
-export type LiveTurnBuffer = {
-  text: string;
-  reasoning: string;
-  toolCalls: Array<{ id: string; name: string; query: string; resolved: boolean }>;
-  citations: CitationEntry[];
-  supporting: SupportingSource[];
-};
+import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
+import type { LiveTurnBuffer } from '@/ui/views/deep-research/types/live-turn-buffer.type';
 
 type SessionEvent =
   | { type: 'status'; status: string }

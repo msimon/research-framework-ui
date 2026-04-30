@@ -13,9 +13,10 @@ export type CitationOutput = {
   // The assembled markdown with `<sup>[N]</sup>` brackets baked in at the
   // end of each text block that had citations attached.
   markdown: string;
-  // Deduplicated cited URLs in first-seen order — gets persisted to
-  // `public.sources` and rendered as the entity's Sources section. Bracket
-  // numbers above are 1-indexed positions in this list.
+  // Deduplicated cited URLs in first-seen order. Used in-memory by the
+  // caller to dedupe the supporting-sources list against; not persisted
+  // directly (sources are reconstructed at read time from citation_map).
+  // Bracket numbers in `markdown` are 1-indexed positions in this list.
   sources: Array<{ url: string; title: string | null }>;
   // Full ordered citation list, including duplicates — persisted to the
   // entity's `citation_map` JSONB column for future use (hover-quote
@@ -59,10 +60,7 @@ export function buildCitationOutput(
           `<a href="#${anchorPrefix}source-${pos}" class="ml-0.5 text-[10px] text-primary no-underline hover:underline">[${pos}]</a>`,
         );
       }
-      // Wrap the whole cited block in <cite> so the Cite component can style
-      // it as a highlighted span. The model no longer emits its own cite tags
-      // — these are server-emitted, scoped to API-level cited blocks.
-      return `<cite>${block.text}</cite><sup>${anchors.join('')}</sup>`;
+      return `${block.text}<sup>${anchors.join('')}</sup>`;
     })
     .join('');
 

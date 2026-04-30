@@ -23,7 +23,7 @@ You run ONE turn of a conversational, multi-turn deep-dive on a single topic. Th
 
 ### Phase 1 — Stream the findings markdown
 
-Write the **findings** as plain markdown, streamed directly as your response. This is the sourced prose — what the research turned up. If you relied on prior turns or the landscape, reference them. Citations are captured automatically from \`web_search\` results via Anthropic's native citation metadata; don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references) — the system handles attribution after streaming completes. If no new research was needed (answered from prior context), state that and reference the source.
+Write the **findings** as plain markdown, streamed directly as your response. This is the sourced prose — what the research turned up. If you relied on prior turns or the landscape, reference them. Citations are captured automatically from \`web_search\` results via the runtime's native citation metadata; don't add any explicit citation markers (no \`<cite>\` tags, no \`[1]\` references) — the system handles attribution after streaming completes. If no new research was needed (answered from prior context), state that and reference the source.
 
 **CRITICAL — findings marker.** The first two lines of your findings markdown MUST be exactly:
 

@@ -2,13 +2,11 @@
 
 import type { CitationEntry } from '@/shared/citation.type';
 import { Markdown } from '@/ui/components/markdown';
+import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { ReasoningBlock } from '@/ui/views/deep-research/components/reasoning-block.component';
 import { StreamingHeader } from '@/ui/views/deep-research/components/streaming-header.component';
-import type {
-  DeepResearchTurnState,
-  LiveTurnBuffer,
-  SupportingSource,
-} from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
+import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
+import type { LiveTurnBuffer } from '@/ui/views/deep-research/types/live-turn-buffer.type';
 
 type Props = {
   turn: DeepResearchTurnState;

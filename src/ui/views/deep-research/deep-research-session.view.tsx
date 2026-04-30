@@ -6,9 +6,9 @@ import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import type { CitationEntry } from '@/shared/citation.type';
+import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { CloseSessionButton } from '@/ui/views/deep-research/components/close-session-button.component';
 import { SessionChat } from '@/ui/views/deep-research/components/session-chat.component';
-import type { SupportingSource } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
 
 type Props = {
   slug: string;

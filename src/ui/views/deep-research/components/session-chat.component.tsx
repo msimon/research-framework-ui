@@ -4,10 +4,8 @@ import { Markdown } from '@/ui/components/markdown';
 import { SectionNav } from '@/ui/components/section-nav';
 import { Composer } from '@/ui/views/deep-research/components/composer.component';
 import { TurnBlock } from '@/ui/views/deep-research/components/turn-block.component';
-import {
-  type DeepResearchTurnState,
-  useDeepResearchSession,
-} from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
+import { useDeepResearchSession } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
+import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
 
 type Props = {
   subjectId: string;

@@ -7,25 +7,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-
-type SupportingSource = { url: string; title: string | null };
-
-export type LandscapeState = {
-  id: string;
-  content_md: string;
-  citation_map: CitationEntry[];
-  supporting_sources: SupportingSource[];
-  status: 'pending' | 'streaming' | 'complete' | 'failed' | string;
-  error_message: string | null;
-  updated_at: string;
-};
-
-export type ToolCallChip = {
-  id: string;
-  name: string;
-  query: string;
-  resolved: boolean;
-};
+import type { SupportingSource } from '@/ui/types/supporting-source.type';
+import type { LandscapeState } from '@/ui/views/topics/types/landscape-state.type';
+import type { ToolCallChip } from '@/ui/views/topics/types/tool-call-chip.type';
 
 type LandscapeEvent =
   | { type: 'status'; status: string }
@@ -211,7 +195,6 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args)
     displayContent,
     hasContent,
     isWorking,
-    citationMap,
   };
 }
 
