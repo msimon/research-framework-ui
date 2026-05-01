@@ -1,6 +1,7 @@
 'use client';
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
@@ -33,6 +34,7 @@ type Args = {
 };
 
 export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initialTrustMap }: Args) {
+  const router = useRouter();
   const [landscape, setLandscape] = useState<LandscapeState | null>(initialLandscape);
   const [streaming, setStreaming] = useState(initialLandscape?.status === 'streaming');
   const [liveContent, setLiveContent] = useState('');
@@ -83,6 +85,10 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
           case 'complete':
             setStreaming(false);
             setReasoningOpen(false);
+            // Re-run the page so the parent TopicView picks up the new
+            // landscape status (which gates the Deep Research section) and
+            // any sessions created in the meantime.
+            router.refresh();
             break;
           case 'error':
             setStreaming(false);
@@ -95,7 +101,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
     return () => {
       supabaseClient.removeChannel(channel);
     };
-  }, [landscapeId]);
+  }, [landscapeId, router]);
 
   useEffect(() => {
     if (!landscapeId) return;
