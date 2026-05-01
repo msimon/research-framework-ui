@@ -77,7 +77,7 @@ usage_events(id, user_id, event_type, model,
 
 **All skills run as Cloudflare Workflows.** One uniform primitive — no Durable Objects. Each Workflow broadcasts events to a **durable-entity-scoped** Supabase Realtime channel as it runs and writes the final state to the DB on completion.
 
-> **Status: deferred.** Long-running agent work currently runs as exported functions inside `*.command.ts`, triggered by server actions via `ctx.waitUntil`. Migration to real Cloudflare Workflows under `workers/` is planned but not yet implemented.
+> **Status: deferred.** Long-running agent work currently runs as exported functions inside `*.command.ts`, awaited inline from server actions (kept alive by the open client request and `cpu_ms: 300000`, not `ctx.waitUntil` — its 30s post-disconnect cap silently kills long jobs). Migration to real Cloudflare Workflows under `workers/` is planned but not yet implemented.
 
 **Channel naming (entity-scoped, long-lived).** The channel is tied to the thing the user is looking at — not the individual workflow run — so the client subscribes once on page mount and never misses events due to subscribe-after-start races:
 
