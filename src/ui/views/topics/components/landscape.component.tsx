@@ -1,8 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { Markdown } from '@/ui/components/markdown';
 import { SourceRow } from '@/ui/components/source-row.component';
 import { Button } from '@/ui/components/ui/button';
+import { useFlashOnHashChange } from '@/ui/hooks/useFlashOnHashChange.hook';
 import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import { LandscapeExplainer } from '@/ui/views/topics/components/landscape-explainer.component';
 import { ReasoningBlock } from '@/ui/views/topics/components/reasoning-block.component';
@@ -33,6 +36,9 @@ export function Landscape({ subjectSlug, topicSlug, initialLandscape, initialTru
     trustMap,
   } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialTrustMap });
 
+  useFlashOnHashChange();
+
+  const citedSources = useMemo(() => displaySources.filter((s) => s.cited), [displaySources]);
   const showExplainer = isWorking && !hasContent;
 
   return (
@@ -68,7 +74,7 @@ export function Landscape({ subjectSlug, topicSlug, initialLandscape, initialTru
 
       {hasContent ? (
         <section className="rounded-md border bg-card p-6">
-          <Markdown>{displayContent}</Markdown>
+          <Markdown citation={{ citedSources, trustMap }}>{displayContent}</Markdown>
         </section>
       ) : null}
 

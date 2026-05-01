@@ -8,8 +8,7 @@ export const sourceTrustCategorySchema = z
     'peer-reviewed',
     'major-press',
     'trade-press',
-    'company-primary',
-    'company-marketing',
+    'company',
     'industry-blog',
     'social',
     'unknown',
@@ -18,10 +17,24 @@ export const sourceTrustCategorySchema = z
 
 export type SourceTrustCategory = z.infer<typeof sourceTrustCategorySchema>;
 
+// Anthropic's structured-output schema rejects `minimum`/`maximum` on
+// integer types, so the 0–5 bound for `trust_score` is enforced via the
+// prompt and clamped at the service boundary instead of via Zod.
+//
+// Output is index-based: the model references each input by its 1-based
+// position in the numbered list, never re-emitting the URL string. This
+// makes URL-shape hallucinations (JSON-syntax leaks, suffix bleed from
+// adjacent entries) physically impossible.
+//
+// `domain` is a diagnostic echo: the model writes the host it sees for
+// this index, and we cross-check against the actual domain to confirm
+// the index↔entry alignment is intact. Mismatches are logged but the
+// index still drives the mapping.
 export const sourceTrustClassificationSchema = z.object({
-  url: z.string().url(),
+  index: z.number().int(),
+  domain: z.string(),
   category: sourceTrustCategorySchema,
-  trust_score: z.number().int().min(0).max(5),
+  trust_score: z.number().int(),
   rationale: z.string().min(1).max(280),
 });
 export type SourceTrustClassification = z.infer<typeof sourceTrustClassificationSchema>;

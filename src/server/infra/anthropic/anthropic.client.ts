@@ -21,3 +21,12 @@ export const anthropicProviderOptions = {
   thinking: { type: 'adaptive', display: 'omitted' },
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;
+
+// Source-trust classification is a host-name lookup most of the time, so
+// adaptive thinking at medium effort lets the model skip deliberation on
+// easy entries and spend tokens only on ambiguous ones (e.g. is a
+// professional society a `standards-body` or `company`).
+export const anthropicClassifierProviderOptions = {
+  thinking: { type: 'adaptive', display: 'omitted' },
+  effort: 'medium',
+} satisfies AnthropicProviderOptions;

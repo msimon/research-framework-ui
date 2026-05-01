@@ -8,7 +8,7 @@ export const baseConfig = {
   },
   llm: {
     model: 'claude-opus-4-7',
-    classifierModel: 'claude-haiku-4-5',
+    classifierModel: 'claude-opus-4-7',
     effort: 'high',
   },
 } as const;

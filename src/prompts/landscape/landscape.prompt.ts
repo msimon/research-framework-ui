@@ -52,6 +52,8 @@ Write claims directly in prose. Citations are captured automatically from \`web_
 
 ### Phase 2: Emit structured updates
 
+The streamed markdown ends at the "Open questions" section. Do NOT write any transition or narration before the tool call (no "Now emitting structured updates", "Calling emit_updates next", "Moving on to the structured output", etc.). Stop the markdown and call the tool — the user never sees the tool call, so any meta-narration just shows up as junk at the bottom of the rendered landscape.
+
 After the markdown is complete, call \`emit_updates\` EXACTLY ONCE with:
 
 - \`research_brief_append\` — a 5–8 line block to append to the subject's research brief under a \`## <topic title>\` heading. Firmest takeaways only, no hedges, written as claims. If a \`[prior]\` from the brief was stress-tested, note it here: "Stress-tested prior: <prior text> → validated / contested: <reason>".
