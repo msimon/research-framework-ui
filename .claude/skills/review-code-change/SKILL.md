@@ -4,24 +4,171 @@ description: Project conventions checklist for reviewing local code changes (sta
 user-invocable: true
 ---
 
-# Lint Conventions
+# Lint Conventions — fresh-agent review
 
-Review the current local diff (`git diff` and `git diff --cached`) against the rules in `DEVELOPMENT.md` → `## Review Checklist`.
+The review **must run in a fresh subagent**, not inline in the current conversation. A fresh agent has no implementation bias from the same session, won't trust prior reasoning about why the code is the way it is, and is more likely to catch architecture violations the author rationalized while writing the code.
 
-**Source of truth:** `DEVELOPMENT.md` at the repo root. Read that section first, then apply each bullet to the diff. If a rule there conflicts with anything you remember, `DEVELOPMENT.md` wins.
+## How to invoke
 
-## Report format
+Spawn a single `Agent` tool call with `model: "opus"` (Opus 4.7) and high reasoning effort. Do not pass `subagent_type` — let it default. Do not run the review yourself, even partially — relay only the subagent's report back to the user.
 
-Number every finding sequentially (1, 2, 3, …) across the whole report so the user can refer back to them by number (e.g. "fix #3 and #7"). Numbering is global, not per-file.
+The prompt below is self-contained. Pass it verbatim (substituting nothing) so the subagent has no context from this conversation.
 
-For each finding, report:
+## Subagent prompt
 
-- **Number** — sequential index, starting at 1
+```
+You are a senior-level engineer with deep expertise in reviewing code changes. You read every diff carefully, you load the surrounding files needed to understand the change in context, and you verify each rule against the code rather than asserting it from inspection. Your reviews catch the architecture violations the author rationalized while writing the code.
+
+You are doing a code review of the local diff in the repository at the current working directory. You have no prior context from any previous conversation — treat the diff as if you've never seen it before.
+
+## Source of truth
+
+`DEVELOPMENT.md` at the repo root → `## Review Checklist`. Read that section first. If anything in this prompt conflicts with `DEVELOPMENT.md`, the doc wins.
+
+## Step 1 — gather the diff
+
+Run all four in parallel:
+
+- `git diff` — unstaged
+- `git diff --cached` — staged
+- `git ls-files --others --exclude-standard` — untracked files (read each one with the Read tool)
+- `git diff --stat` — quick map of which files changed
+
+Read every changed file end-to-end if it's small, or read the changed regions plus enough surrounding context to understand structure. Don't review only the diff hunks — a hunk can be locally fine and globally wrong.
+
+## Step 2 — run mechanical checks BEFORE inspecting
+
+For every checklist rule that can be expressed as a grep, RUN the grep. Do not assert "no violations" by eyeballing — that fails on architecture invariants because the author often had a reason that felt convincing at the time.
+
+Specifically, run these checks (adjust paths for the repo's structure if it differs):
+
+1. **Commands never call other commands.**
+   ```
+   Grep pattern: from '@/server/domain/[^']+\.command'
+   Path: src/server/domain
+   ```
+   Any match where the importing file is itself a `*.command.ts` is a violation.
+
+2. **Repositories never call other repositories.**
+   ```
+   Grep pattern: from '@/server/domain/[^']+\.repository'
+   Path: src/server/domain
+   ```
+   Any match where the importing file is itself a `*.repository.ts` is a violation.
+
+3. **Infra never imports domain.**
+   ```
+   Grep pattern: from '@/server/domain/
+   Path: src/server/infra
+   ```
+   Any match is a violation.
+
+4. **No relative imports / no `src/` prefixes.**
+   ```
+   Grep pattern: from '\.\./|from 'src/
+   Path: src
+   ```
+
+5. **No namespace imports** (except vendored shadcn).
+   ```
+   Grep pattern: ^import \* as
+   Path: src
+   ```
+   Filter out `import * as React` and `import * as Radix*` inside `src/ui/components/ui/`.
+
+6. **`process.env` only inside `src/shared/config/`.**
+   ```
+   Grep pattern: process\.env
+   Path: src
+   ```
+   Any hit outside `src/shared/config/` is a violation.
+
+7. **No `SELECT *` in Supabase queries.**
+   ```
+   Grep pattern: \.select\('\*'\)|\.select\(\)
+   Path: src/server/domain
+   ```
+
+8. **Hex literals in JSX/CSS.**
+   ```
+   Grep pattern: #[0-9a-fA-F]{3,8}
+   Path: src/ui
+   ```
+   Filter out CSS variable definitions and SVG paths if any.
+
+9. **Manually edited generated types file.**
+   ```
+   Check: did the diff touch src/shared/lib/supabase/supabase.types.ts in a way that doesn't match the regenerated output?
+   ```
+   If the file is in the diff, confirm it was regenerated via the project's types-generation script and not hand-edited.
+
+10. **File suffix usage.** For every new file in the diff, check that it uses the correct suffix per the doc's naming conventions (`.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.schema.ts`, `.prompt.ts`, `.view.tsx`, `.component.tsx`, `.context.tsx`, `.hook.ts`, `.type.ts`, `.util.ts`).
+
+11. **`.prompt.ts` purity.** For each `.prompt.ts` file in the diff, confirm it exports only `const` strings — no Zod imports, no helper functions, no message builders.
+
+12. **`.schema.ts` purity.** For each `.schema.ts` file in the diff, confirm it exports only Zod schemas + inferred types — no I/O, no prompt text, no message construction.
+
+13. **`as` casts on LLM outputs.**
+    ```
+    Grep pattern: emitCall\.input as |\.input as | as [A-Z][A-Za-z]+
+    Path: src/server/domain
+    ```
+    Anywhere LLM-emitted structured data is cast instead of `.parse()`-ed is a violation.
+
+14. **`useCallback` chains.**
+    ```
+    Grep pattern: useCallback
+    Path: src/ui
+    ```
+    Inspect any new `useCallback` for whether it depends on another `useCallback`'s output (cascading deps).
+
+15. **Soft enum drift.** For each `.schema.ts` in the diff with a `z.enum(...)`, check whether `.catch(default)` is applied if the enum could legitimately drift from the model. Hard `.parse()` failures should be reserved for structural fields.
+
+Record violations from these mechanical checks first. Then move to the rules that require judgment (per-rule below).
+
+## Step 3 — judgment-call rules
+
+After the mechanical pass, evaluate the rules that require reading the code, not greps:
+
+- Commands don't call other commands (already checked mechanically — re-confirm by reading the actual import targets).
+- Pages contain no markup — read every changed `app/**/page.tsx` end-to-end.
+- Views are primarily JSX, with substantial logic in a co-located hook — for each `*.view.tsx` in the diff, check whether `useEffect` blocks contain real-time subscriptions, multi-state machines, or orchestration. If yes, it should be in a `use<Feature>.hook.ts`.
+- Server actions use `withAuth()` or `requireAuth()` — read every changed `*.action.ts`.
+- No server action that's just a passthrough to a repository.
+- `supabaseAdmin()` paired with explicit ownership check in calling code (only for cross-user/system work).
+- Repository naming: `get${Name}()` throws when not found; `find${Name}()` returns `null`.
+- Repository file order: Find/Get → Create → Update/Upsert → Delete.
+- Broadcast channels are `{ config: { private: true } }` on both sender and subscriber, with matching RLS policy on `realtime.messages`.
+- `postgres_changes` callbacks typed with `RealtimePostgresChangesPayload<T>` (not hand-rolled).
+- New tables: `created_at`/`updated_at` with `set_updated_at` trigger; user-owned tables have RLS keyed on `auth.uid()`; `NOT NULL` with defaults preferred.
+- Migration edits target only uncommitted migration files — `git log --oneline -- <migration>` is empty for the edited file.
+- Comments in code accurately describe what's there. Misleading comments (claims about behavior that isn't implemented, references to APIs that don't exist) are warnings.
+
+## Step 4 — report
+
+Number every finding sequentially across the whole report (1, 2, 3 …), so the user can say "fix #3 and #7." Numbering is global, not per-file.
+
+For each finding:
+
+- **Number** — sequential, starting at 1
 - **File and line** — e.g. `src/server/domain/tasks/tasks.command.ts:42`
-- **Rule violated** — which checklist item (quote the bullet verbatim)
+- **Rule violated** — quote the checklist bullet verbatim
 - **Severity** — error (must fix) | warning (should fix) | nit (optional)
 - **Suggestion** — how to fix it
+- **Evidence** — for any finding that came from a mechanical check, paste the grep command and the matching line so the user can verify
 
-Group findings by file (numbers still increase monotonically across groups). If no issues are found, say so explicitly.
+Group findings by file; numbers still increase monotonically across groups. If no issues are found, say so explicitly.
 
-End with a short summary: number of errors, warnings, and nits.
+End with a summary: counts of errors, warnings, nits, and a list of which mechanical checks ran and what they found (zero or N matches each), so the user can see what was verified vs. inspected.
+
+## What NOT to do
+
+- Do not skip mechanical checks because "this looks fine." The whole point of running this in a fresh agent is to catch what looks fine to someone who already approved it.
+- Do not summarize "the diff overall" — go finding by finding.
+- Do not propose refactors beyond fixing the cited rule.
+- Do not stop after finding one violation — finish all checks.
+```
+
+## After the subagent reports
+
+Relay the report verbatim or with minimal trimming. Do not add findings of your own — if you spot something the subagent missed, mention it as an addendum after the relayed report so the user can see it came from you, not from the fresh-agent review.
