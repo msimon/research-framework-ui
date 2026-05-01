@@ -7,7 +7,7 @@ Clean Architecture over Next.js 16 + Supabase + Cloudflare. See `PLAN.md` for pr
 1. Entry points (`app/`) delegate to commands (`server/domain/`) — never contain business logic
 2. Commands never call other commands; repositories never call other repositories
 3. Vendor/external integrations go in `src/server/infra/*`, not `domain/`
-4. Long-running agent work currently runs as exported functions inside `*.command.ts`, invoked via `ctx.waitUntil` from server actions. Migration to real Cloudflare Workflows under `workers/` is planned future work, not current state.
+4. Long-running agent work currently runs as exported functions inside `*.command.ts`, awaited inline from server actions (kept alive by `cpu_ms: 300000`, not `ctx.waitUntil` — see Agent Runtime). Migration to real Cloudflare Workflows under `workers/` is planned future work, not current state.
 5. Use file suffixes: `.command.ts`, `.repository.ts`, `.action.ts`, `.service.ts`, `.view.tsx`, `.dto.ts`, `.prompt.ts`
 6. Imports always use `@/` alias — no relative paths
 7. `process.env` is only read inside `src/shared/config/*`
@@ -52,7 +52,7 @@ supabase/                           # config.toml, migrations/, seed.sql
 
 ## Domain Layer Rules
 
-- **Commands**: execute business operations, coordinate repositories and services. Commands **never** call other commands (but may call repositories from other domains). Long-running agent work (e.g. interview turns, discover, landscape, deep-research) lives as exported functions inside `*.command.ts` and is invoked from server actions via `ctx.waitUntil(...)`.
+- **Commands**: execute business operations, coordinate repositories and services. Commands **never** call other commands (but may call repositories from other domains). Long-running agent work (e.g. interview turns, discover, landscape, deep-research) lives as exported functions inside `*.command.ts` and is awaited inline by the server action (see Agent Runtime).
 - **Repositories**: data access scoped to a command. Never call other repositories.
   - `get${Name}()` throws when not found; `find${Name}()` returns `null`.
   - Order inside a repository file: Find/Get → Create → Update/Upsert → Delete.
@@ -211,7 +211,9 @@ Don't create a server action that just passes through to a repository — call t
 
 ## Agent Runtime
 
-Long-running agent work (interview turns, discover, landscape, deep-research turns) currently runs as exported functions inside `*.command.ts`. Server actions trigger them via `ctx.waitUntil(...)` and return the entity id (e.g. `turnId`) synchronously so the client can subscribe to the broadcast channel. The function streams events on Supabase Realtime as it runs and persists final state to the DB on completion.
+Long-running agent work (interview turns, discover, landscape, deep-research turns) currently runs as exported functions inside `*.command.ts`. Server actions `await` them inline; the action returns only after the work has completed and persisted. The page subscribes to the Supabase Realtime channel ahead of issuing the action, so streaming progress renders while the action is still in-flight.
+
+The Worker is kept alive by the open client request: while the HTTP connection from the action POST is open, the Worker has up to `cpu_ms` (configured at 5 min in `wrangler.jsonc`) of CPU time. Anthropic API calls block on `fetch`, which is idle time and does **not** count against `cpu_ms` — in practice an LLM call that runs 60s wall-clock burns tens of milliseconds of CPU. Do **not** wrap agent work in `ctx.waitUntil`: that defers the promise to the post-disconnect window which is hard-capped at 30s by Cloudflare with no override, and long jobs are silently cancelled (only a `(warn)` is logged).
 
 Migration to real Cloudflare Workflows under `workers/` (one `WorkflowEntrypoint` class per skill) is planned but deferred — there is no `workers/` directory today.
 
@@ -247,10 +249,10 @@ export async function runDeepResearchTurn({ turnId, sessionId, userText }: RunTu
 
 ### Rules
 
-- Server actions trigger the function via `ctx.waitUntil(runX(...))` and return the entity id immediately. They do not block on LLM output.
+- Server actions `await runX(...)` directly and return only when the work has finished. They do block on LLM output — the open client request is what keeps the Worker alive.
 - Externally-visible side effects (DB writes, LLM calls) should be idempotent where possible — even though we have no `step.do` checkpointing today, a future migration to Workflows will require it.
 - Broadcast during the run; durable write on completion. Never rely on broadcast for durability.
-- Agent functions use `supabaseAdmin()`. Although the captured cookie store may still be readable inside `waitUntil` via AsyncLocalStorage, JWT refresh writes fail post-response (`setAll` errors are swallowed in `supabaseUser()`), so the auth state is frozen at request-time and a long-running agent will break if the JWT expires mid-run. Always validate `user_id` matches the owning entity before any write.
+- Agent functions use `supabaseAdmin()`. Always validate `user_id` matches the owning entity before any write.
 
 ## Supabase Realtime — Streaming Convention
 
@@ -498,7 +500,7 @@ Single source of truth for `/lint-code-change` and `/lint-workspace-change`. Eac
 
 ### Agent runtime
 
-- Long-running agent work is exported from `*.command.ts` and triggered from server actions via `ctx.waitUntil(...)`. The action returns the entity id immediately; it does not block on LLM output.
+- Long-running agent work is exported from `*.command.ts` and `await`ed inline from server actions. The action returns only after the work completes; the open client request keeps the Worker alive (bounded by `cpu_ms`, not the 30s `waitUntil` cap).
 - Agent functions use `supabaseAdmin()` and validate `user_id` against the owning entity before any write.
 - Broadcast during the run; durable write on completion. Never rely on broadcast for durability.
 

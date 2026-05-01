@@ -73,9 +73,10 @@
 
 ## Agent runtime
 
-- Long-running agent work currently runs as exported functions inside `*.command.ts`, triggered from server actions via `ctx.waitUntil(...)`.
+- Long-running agent work currently runs as exported functions inside `*.command.ts`, awaited inline by the server action.
 - Agent functions use `supabaseAdmin()` — always validate ownership before writing.
-- Server actions trigger long-running agent work via `ctx.waitUntil` and return the entity id immediately. They do not block on LLM output.
+- Server actions `await` the work and only return once it completes. The action handler keeps the Worker alive for the duration; `cpu_ms: 300000` (5 min) is the budget. Idle time inside `fetch` to Anthropic does not count against `cpu_ms`. Do **not** use `ctx.waitUntil` — its 30s post-disconnect cap silently kills long jobs.
+- The page subscribes to the Supabase Realtime channel before issuing the action, so streaming progress is rendered while the action is still in-flight. The action's return value is just the final ack.
 - Migration to real Cloudflare Workflows under `workers/` is planned but deferred — there is no `workers/` directory today.
 
 ## Streaming (Supabase Realtime)

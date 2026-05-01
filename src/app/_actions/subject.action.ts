@@ -1,6 +1,5 @@
 'use server';
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
@@ -31,12 +30,9 @@ export const createSubjectAction = withAuth(async (userId: string, formData: For
     slugOverride: parsed.data.slugOverride || null,
   });
 
-  const { ctx } = getCloudflareContext();
-  ctx.waitUntil(
-    triggerFirstInterviewStep(userId, subject.id).catch((error) => {
-      console.error('[interview] first step failed', error);
-    }),
-  );
+  await triggerFirstInterviewStep(userId, subject.id).catch((error) => {
+    console.error('[interview] first step failed', error);
+  });
   redirect(`/subjects/new?id=${subject.id}`);
 });
 
@@ -60,12 +56,9 @@ export const answerInterviewAction = withAuth(async (userId: string, formData: F
     answer: parsed.data.answer,
   });
 
-  const { ctx } = getCloudflareContext();
-  ctx.waitUntil(
-    advanceInterview(userId, parsed.data.subjectId).catch((error) => {
-      console.error('[interview] advance failed', error);
-    }),
-  );
+  await advanceInterview(userId, parsed.data.subjectId).catch((error) => {
+    console.error('[interview] advance failed', error);
+  });
 
   return { ok: true as const };
 });
