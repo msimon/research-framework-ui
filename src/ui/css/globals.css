@@ -98,3 +98,21 @@
     min-height: 60vh;
   }
 }
+
+@layer utilities {
+  .citation-flash {
+    animation: citation-flash 3s ease-in-out;
+  }
+}
+
+@keyframes citation-flash {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+
+  10%,
+  70% {
+    background-color: color-mix(in oklch, var(--primary) 15%, transparent);
+  }
+}

@@ -3,6 +3,7 @@
 import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { LexiconView } from '@/ui/components/lexicon-view.component';
 import { SectionNav } from '@/ui/components/section-nav';
+import { useFlashOnHashChange } from '@/ui/hooks/useFlashOnHashChange.hook';
 import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import { Composer } from '@/ui/views/deep-research/components/composer.component';
 import { TurnBlock } from '@/ui/views/deep-research/components/turn-block.component';
@@ -23,6 +24,8 @@ type Props = {
 export function SessionChat(props: Props) {
   const { turns, live, sessionStatus, lexicon, error, pending, activeTurn, canSubmit, submit, trustMap } =
     useDeepResearchSession(props);
+
+  useFlashOnHashChange();
 
   const sections = turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` }));
 

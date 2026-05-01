@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import type { CitationEntry } from '@/shared/citation.type';
 import type { SupportingSource } from '@/shared/supporting-source.type';
 import { Markdown } from '@/ui/components/markdown';
@@ -27,7 +29,11 @@ export function TurnBlock({ turn, live, isActive, trustMap }: Props) {
   const citationMap = isActive && live?.citations.length ? live.citations : turn.citation_map;
   const supportingSources: ReadonlyArray<SupportingSource> =
     isActive && live?.supporting.length ? live.supporting : turn.supporting_sources;
-  const turnSources = buildCombined(citationMap, supportingSources);
+  const turnSources = useMemo(
+    () => buildCombined(citationMap, supportingSources),
+    [citationMap, supportingSources],
+  );
+  const citedSources = useMemo(() => turnSources.filter((s) => s.cited), [turnSources]);
 
   const persistedFindings = turn.findings_md?.trim() ?? '';
   const findingsContent = persistedFindings || (isActive ? liveText : '');
@@ -52,7 +58,9 @@ export function TurnBlock({ turn, live, isActive, trustMap }: Props) {
         <div className="flex flex-col gap-4 rounded-md border p-4">
           <section>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Findings</p>
-            <Markdown className="mt-1">{findingsContent}</Markdown>
+            <Markdown className="mt-1" citation={{ citedSources, trustMap }}>
+              {findingsContent}
+            </Markdown>
           </section>
 
           {turn.my_read_md ? (
