@@ -1,70 +1,26 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
+'use client';
 
-import { findSessionById, listTurnsForSession } from '@/server/domain/deep-research/deep-research.repository';
-import { findSourceTrustByUrls } from '@/server/domain/source-trust/source-trust.repository';
-import { getSubject } from '@/server/domain/subjects/subjects.command';
-import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
-import { getCurrentUserId } from '@/server/lib/utils/currentUser';
-import type { CitationEntry } from '@/shared/citation.type';
+import Link from 'next/link';
+
+import type { Subject } from '@/server/domain/subjects/subjects.repository';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import type { SourceTrustMap } from '@/ui/types/source-trust.type';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { CloseSessionButton } from '@/ui/views/deep-research/components/close-session-button.component';
 import { SessionChat } from '@/ui/views/deep-research/components/session-chat.component';
+import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
+
+type TopicRow = Database['public']['Tables']['topics']['Row'];
+type SessionRow = Database['public']['Tables']['deep_research_sessions']['Row'];
 
 type Props = {
-  slug: string;
-  topicSlug: string;
-  sessionId: string;
+  subject: Subject;
+  topic: TopicRow;
+  session: SessionRow;
+  turnEntries: DeepResearchTurnState[];
+  initialTrustMap: SourceTrustMap;
 };
 
-export async function DeepResearchSessionView({ slug, topicSlug, sessionId }: Props) {
-  const userId = await getCurrentUserId();
-  const subject = await getSubject(userId, slug);
-  const topic = await findTopicBySlug(subject.id, topicSlug);
-  if (!topic) notFound();
-
-  const session = await findSessionById(sessionId);
-  if (!session || session.topic_id !== topic.id) notFound();
-
-  const turns = await listTurnsForSession(sessionId);
-
-  const turnEntries = turns.map((t) => ({
-    id: t.id,
-    turn_number: t.turn_number,
-    user_text: t.user_text,
-    findings_md: t.findings_md,
-    my_read_md: t.my_read_md,
-    followup_question: t.followup_question,
-    reasoning_md: t.reasoning_md,
-    citation_map: (t.citation_map as CitationEntry[] | null) ?? [],
-    supporting_sources: (t.supporting_sources as SupportingSource[] | null) ?? [],
-    status: t.status,
-    error_message: t.error_message,
-  }));
-
-  const trustUrls = Array.from(
-    new Set(
-      turnEntries.flatMap((t) => [
-        ...t.citation_map.map((c) => c.url),
-        ...t.supporting_sources.map((s) => s.url),
-      ]),
-    ),
-  );
-  const trustRows = await findSourceTrustByUrls(trustUrls);
-  const initialTrustMap: SourceTrustMap = Object.fromEntries(
-    trustRows.map((row) => [
-      row.url,
-      {
-        url: row.url,
-        domain: row.domain,
-        category: row.category,
-        trust_score: row.trust_score,
-        rationale: row.rationale,
-      },
-    ]),
-  );
-
+export function DeepResearchSessionView({ subject, topic, session, turnEntries, initialTrustMap }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-start justify-between gap-4">

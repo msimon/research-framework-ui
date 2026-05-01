@@ -51,12 +51,7 @@ export function useDeepResearchSession(args: Args) {
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: BroadcastPayload }) => {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
-        if (payload.type === 'complete') {
-          // Persisted turn rows arrive via the postgres_changes subscription on
-          // `deep_research_turns`; trust badges arrive via the source_trust
-          // subscription. No router.refresh() needed.
-          return;
-        }
+        if (payload.type === 'complete') return;
         setLive((prev) => {
           const existing = prev[turnId] ?? {
             text: '',
@@ -128,6 +123,16 @@ export function useDeepResearchSession(args: Args) {
   }, [args.sessionId]);
 
   useEffect(() => {
+    const upsertTurn = (next: DeepResearchTurnState) => {
+      setTurns((prev) => {
+        const idx = prev.findIndex((t) => t.id === next.id);
+        if (idx === -1) return [...prev, next].sort((a, b) => a.turn_number - b.turn_number);
+        const clone = [...prev];
+        clone[idx] = next;
+        return clone;
+      });
+    };
+
     const rows = supabaseClient
       .channel(`deep_research_turns:session:${args.sessionId}`)
       .on(
@@ -140,14 +145,7 @@ export function useDeepResearchSession(args: Args) {
         },
         (payload: RealtimePostgresChangesPayload<DeepResearchTurnState>) => {
           if (payload.eventType === 'DELETE') return;
-          const next = payload.new;
-          setTurns((prev) => {
-            const idx = prev.findIndex((t) => t.id === next.id);
-            if (idx === -1) return [...prev, next].sort((a, b) => a.turn_number - b.turn_number);
-            const clone = [...prev];
-            clone[idx] = next;
-            return clone;
-          });
+          upsertTurn(payload.new);
         },
       )
       .subscribe();
@@ -208,9 +206,9 @@ export function useDeepResearchSession(args: Args) {
       .channel(`source_trust:session:${args.sessionId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'source_trust' },
+        { event: 'INSERT', schema: 'public', table: 'source_trust' },
         (payload: RealtimePostgresChangesPayload<SourceTrustRow>) => {
-          if (payload.eventType === 'DELETE') return;
+          if (payload.eventType !== 'INSERT') return;
           const row = payload.new;
           setTrustMap((prev) => ({ ...prev, [row.url]: rowToTrust(row) }));
         },

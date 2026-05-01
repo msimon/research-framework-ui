@@ -10,6 +10,7 @@ import {
 import {
   createLandscape,
   findLandscapeByTopic,
+  type Landscape,
   updateLandscape,
 } from '@/server/domain/landscapes/landscapes.repository';
 import {
@@ -31,9 +32,6 @@ import { mergeLexicon } from '@/server/lib/utils/merge-lexicon.util';
 import { uniqueByUrl } from '@/server/lib/utils/unique-by-url.util';
 import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
-import type { Database } from '@/shared/lib/supabase/supabase.types';
-
-type LandscapeRow = Database['public']['Tables']['landscapes']['Row'];
 
 export type RunLandscapeInput = {
   userId: string;
@@ -47,7 +45,7 @@ export type RunLandscapeResult = {
   contentMd: string;
 };
 
-export async function getOrCreateLandscape(topicId: string): Promise<LandscapeRow> {
+export async function getOrCreateLandscape(topicId: string): Promise<Landscape> {
   const existing = await findLandscapeByTopic(topicId);
   if (existing) return existing;
   return createLandscape({ topic_id: topicId, status: 'pending', content_md: '' });

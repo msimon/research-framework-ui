@@ -1,10 +1,10 @@
 'use client';
 
 import type { CitationEntry } from '@/shared/citation.type';
+import type { SupportingSource } from '@/shared/supporting-source.type';
 import { Markdown } from '@/ui/components/markdown';
 import { SourceRow } from '@/ui/components/source-row.component';
 import type { SourceTrustMap } from '@/ui/types/source-trust.type';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { ReasoningBlock } from '@/ui/views/deep-research/components/reasoning-block.component';
 import { StreamingHeader } from '@/ui/views/deep-research/components/streaming-header.component';
 import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';

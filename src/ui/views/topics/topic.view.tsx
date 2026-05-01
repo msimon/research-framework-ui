@@ -1,52 +1,27 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
+'use client';
 
-import { listSessionsForTopic } from '@/server/domain/deep-research/deep-research.repository';
-import { findLandscapeByTopic } from '@/server/domain/landscapes/landscapes.repository';
-import { findSourceTrustByUrls } from '@/server/domain/source-trust/source-trust.repository';
-import { getSubject } from '@/server/domain/subjects/subjects.command';
-import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
-import { getCurrentUserId } from '@/server/lib/utils/currentUser';
-import type { CitationEntry } from '@/shared/citation.type';
+import Link from 'next/link';
+
+import type { Subject } from '@/server/domain/subjects/subjects.repository';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import { SectionNav } from '@/ui/components/section-nav';
 import type { SourceTrustMap } from '@/ui/types/source-trust.type';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { DeepResearchSection } from '@/ui/views/topics/components/deep-research-section.component';
 import { Landscape } from '@/ui/views/topics/components/landscape.component';
+import type { LandscapeState } from '@/ui/views/topics/types/landscape-state.type';
+
+type TopicRow = Database['public']['Tables']['topics']['Row'];
+type SessionRow = Database['public']['Tables']['deep_research_sessions']['Row'];
 
 type Props = {
-  slug: string;
-  topicSlug: string;
+  subject: Subject;
+  topic: TopicRow;
+  landscape: LandscapeState | null;
+  sessions: SessionRow[];
+  initialTrustMap: SourceTrustMap;
 };
 
-export async function TopicView({ slug, topicSlug }: Props) {
-  const userId = await getCurrentUserId();
-  const subject = await getSubject(userId, slug);
-  const topic = await findTopicBySlug(subject.id, topicSlug);
-  if (!topic) notFound();
-
-  const landscape = await findLandscapeByTopic(topic.id);
-  const sessions = await listSessionsForTopic(topic.id);
-
-  const landscapeCitations = (landscape?.citation_map as CitationEntry[] | null) ?? [];
-  const landscapeSupporting = (landscape?.supporting_sources as SupportingSource[] | null) ?? [];
-  const trustUrls = Array.from(
-    new Set([...landscapeCitations.map((c) => c.url), ...landscapeSupporting.map((s) => s.url)]),
-  );
-  const trustRows = await findSourceTrustByUrls(trustUrls);
-  const initialTrustMap: SourceTrustMap = Object.fromEntries(
-    trustRows.map((row) => [
-      row.url,
-      {
-        url: row.url,
-        domain: row.domain,
-        category: row.category,
-        trust_score: row.trust_score,
-        rationale: row.rationale,
-      },
-    ]),
-  );
-
+export function TopicView({ subject, topic, landscape, sessions, initialTrustMap }: Props) {
   const sections = [
     { id: 'landscape', label: 'Landscape' },
     ...(landscape?.status === 'complete' ? [{ id: 'deep-research', label: 'Deep research' }] : []),
@@ -68,37 +43,14 @@ export async function TopicView({ slug, topicSlug }: Props) {
         <Landscape
           subjectSlug={subject.slug}
           topicSlug={topic.slug}
-          initialLandscape={
-            landscape
-              ? {
-                  id: landscape.id,
-                  content_md: landscape.content_md,
-                  citation_map: landscapeCitations,
-                  supporting_sources: landscapeSupporting,
-                  status: landscape.status,
-                  error_message: landscape.error_message,
-                  updated_at: landscape.updated_at,
-                }
-              : null
-          }
+          initialLandscape={landscape}
           initialTrustMap={initialTrustMap}
         />
       </div>
 
       {landscape?.status === 'complete' ? (
         <div id="deep-research" className="scroll-mt-16">
-          <DeepResearchSection
-            subjectSlug={subject.slug}
-            topicSlug={topic.slug}
-            sessions={sessions.map((s) => ({
-              id: s.id,
-              seed_question: s.seed_question,
-              status: s.status,
-              turn_count: s.turn_count,
-              last_turn_at: s.last_turn_at,
-              created_at: s.created_at,
-            }))}
-          />
+          <DeepResearchSection subjectSlug={subject.slug} topicSlug={topic.slug} sessions={sessions} />
         </div>
       ) : null}
     </div>

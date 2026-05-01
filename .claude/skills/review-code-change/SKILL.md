@@ -124,6 +124,33 @@ Specifically, run these checks (adjust paths for the repo's structure if it diff
 
 15. **Soft enum drift.** For each `.schema.ts` in the diff with a `z.enum(...)`, check whether `.catch(default)` is applied if the enum could legitimately drift from the model. Hard `.parse()` failures should be reserved for structural fields.
 
+16. **Every `.view.tsx` declares `'use client'`.** For each `.view.tsx` file in the diff (added or modified), confirm the first non-blank, non-comment line is the `'use client'` directive. Missing directive on a view is a violation, even if the file currently uses no hooks.
+    ```
+    Grep pattern (find views without the directive): list every *.view.tsx, then for each one inspect line 1.
+    ```
+    Use `Glob src/**/*.view.tsx` then read each file's first lines.
+
+17. **No value imports from `@/server/*` in `.view.tsx`.** Views must not pull server runtime code; type-only imports are allowed.
+    ```
+    Grep pattern: ^import (?!type ).*from '@/server/
+    Glob: **/*.view.tsx
+    ```
+    Any match is a violation — the corresponding fetch/auth/transformation must move to the page. `import type { … } from '@/server/…'` does not match and is fine.
+
+18. **No async `.view.tsx`.** Views must be synchronous function components.
+    ```
+    Grep pattern: ^export async function|^export default async function
+    Glob: **/*.view.tsx
+    ```
+    Any match is a violation.
+
+19. **Pages render no markup.** For each `app/**/page.tsx` in the diff, check that the JSX returned consists only of a single component invocation (or a control-flow branch that returns one). No `<div>`, `<main>`, `<section>`, no Tailwind className.
+    ```
+    Grep pattern: <(div|main|section|header|footer|aside|article|nav|ul|ol|li|p|h[1-6]|span|button)\b|className=
+    Glob: app/**/page.tsx
+    ```
+    Any match is a violation.
+
 Record violations from these mechanical checks first. Then move to the rules that require judgment (per-rule below).
 
 ## Step 3 — judgment-call rules
@@ -131,7 +158,8 @@ Record violations from these mechanical checks first. Then move to the rules tha
 After the mechanical pass, evaluate the rules that require reading the code, not greps:
 
 - Commands don't call other commands (already checked mechanically — re-confirm by reading the actual import targets).
-- Pages contain no markup — read every changed `app/**/page.tsx` end-to-end.
+- Pages own all server work — for each `app/**/page.tsx` in the diff, verify the page (not a nested view) does the data fetching, auth (`getCurrentUserId()`, `requireAuth()`), control flow (`notFound()`, `redirect()`), and any server→client mapping (e.g. building lookup maps from row fetches). Views must receive everything as props.
+- View prop shape — for each `*.view.tsx` in the diff, confirm props use `Database['public']['Tables']['x']['Row']` types directly when the row matches the JSX needs. No `*.dto.ts` files. Any transformation lives inline in the page.
 - Views are primarily JSX, with substantial logic in a co-located hook — for each `*.view.tsx` in the diff, check whether `useEffect` blocks contain real-time subscriptions, multi-state machines, or orchestration. If yes, it should be in a `use<Feature>.hook.ts`.
 - Server actions use `withAuth()` or `requireAuth()` — read every changed `*.action.ts`.
 - No server action that's just a passthrough to a repository.

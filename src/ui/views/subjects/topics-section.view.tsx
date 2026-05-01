@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import { type TopicsSectionTopic, useTopicsSection } from '@/ui/views/subjects/hooks/useTopicsSection.hook';
+import { useTopicsSection } from '@/ui/views/subjects/hooks/useTopicsSection.hook';
+
+type TopicRow = Database['public']['Tables']['topics']['Row'];
 
 type Props = {
   subjectId: string;
   subjectSlug: string;
-  initialTopics: TopicsSectionTopic[];
+  initialTopics: TopicRow[];
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -81,7 +84,7 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
                 href={`/subjects/${subjectSlug}/topics/${topic.slug}`}
                 className="block p-3 transition-colors hover:bg-muted/40"
               >
-                <TopicRow topic={topic} subjectSlug={subjectSlug} />
+                <TopicListItem topic={topic} subjectSlug={subjectSlug} />
               </Link>
             </li>
           ))}
@@ -98,7 +101,7 @@ export function TopicsSection({ subjectId, subjectSlug, initialTopics }: Props) 
   );
 }
 
-function TopicRow({ topic }: { topic: TopicsSectionTopic; subjectSlug: string }) {
+function TopicListItem({ topic }: { topic: TopicRow; subjectSlug: string }) {
   const stateLabel = statusLabel(topic.status);
   return (
     <div className="flex flex-col gap-0.5">

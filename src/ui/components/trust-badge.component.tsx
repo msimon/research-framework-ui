@@ -1,17 +1,25 @@
 import { cn } from '@/lib/utils';
-import { trustTier } from '@/shared/lib/utils/source-trust-tier.util';
 import type { SourceTrust } from '@/ui/types/source-trust.type';
 
 type Props = {
   trust: SourceTrust;
 };
 
-const tierClasses: Record<ReturnType<typeof trustTier>, string> = {
+type TrustTier = 'high' | 'medium' | 'low' | 'unknown';
+
+const tierClasses: Record<TrustTier, string> = {
   high: 'border-primary/40 bg-primary/10 text-primary',
   medium: 'border-border bg-muted text-foreground',
   low: 'border-destructive/30 bg-destructive/5 text-destructive',
   unknown: 'border-border bg-muted text-muted-foreground',
 };
+
+function trustTier(score: number | undefined | null): TrustTier {
+  if (score === undefined || score === null) return 'unknown';
+  if (score >= 4) return 'high';
+  if (score >= 2) return 'medium';
+  return 'low';
+}
 
 export function TrustBadge({ trust }: Props) {
   const tier = trustTier(trust.trust_score);

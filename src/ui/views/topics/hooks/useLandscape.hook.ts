@@ -7,8 +7,8 @@ import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@/shared/lib/supabase/supabase.types';
+import type { SupportingSource } from '@/shared/supporting-source.type';
 import type { SourceTrust, SourceTrustMap } from '@/ui/types/source-trust.type';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import type { LandscapeState } from '@/ui/views/topics/types/landscape-state.type';
 import type { ToolCallChip } from '@/ui/views/topics/types/tool-call-chip.type';
 
@@ -132,9 +132,9 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initial
       .channel(`source_trust:landscape:${landscapeId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'source_trust' },
+        { event: 'INSERT', schema: 'public', table: 'source_trust' },
         (payload: RealtimePostgresChangesPayload<SourceTrustRow>) => {
-          if (payload.eventType === 'DELETE') return;
+          if (payload.eventType !== 'INSERT') return;
           const row = payload.new;
           setTrustMap((prev) => ({ ...prev, [row.url]: rowToTrust(row) }));
         },

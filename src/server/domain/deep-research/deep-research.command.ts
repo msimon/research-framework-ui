@@ -10,6 +10,7 @@ import {
   getSessionById,
   getTurnById,
   listTurnsForSession,
+  type Turn,
   updateSession,
   updateTurn,
 } from '@/server/domain/deep-research/deep-research.repository';
@@ -34,9 +35,6 @@ import { uniqueByUrl } from '@/server/lib/utils/unique-by-url.util';
 import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
-import type { Database } from '@/shared/lib/supabase/supabase.types';
-
-type TurnRow = Database['public']['Tables']['deep_research_turns']['Row'];
 
 export type StartSessionInput = {
   userId: string;
@@ -421,7 +419,7 @@ function buildDeepResearchMessages(input: {
   topic: { slug: string; title: string; pitch: string; rationale: string; category: string };
   landscapeMd: string;
   seedQuestion: string;
-  priorTurns: TurnRow[];
+  priorTurns: Turn[];
   currentUserText: string;
 }) {
   const stable = [

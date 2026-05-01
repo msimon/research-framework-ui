@@ -5,23 +5,13 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { runDiscoverAction } from '@/app/_actions/discover.action';
 import { supabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 
-export type TopicsSectionTopic = {
-  id: string;
-  slug: string;
-  title: string;
-  pitch: string;
-  rationale: string;
-  category: string;
-  status: string;
-  sort_order: number;
-  discover_hint: string | null;
-  created_at: string;
-};
+type TopicRow = Database['public']['Tables']['topics']['Row'];
 
 type Args = {
   subjectId: string;
-  initialTopics: TopicsSectionTopic[];
+  initialTopics: TopicRow[];
 };
 
 function statusRank(status: string): number {
@@ -31,7 +21,7 @@ function statusRank(status: string): number {
 }
 
 export function useTopicsSection({ subjectId, initialTopics }: Args) {
-  const [topics, setTopics] = useState<TopicsSectionTopic[]>(initialTopics);
+  const [topics, setTopics] = useState<TopicRow[]>(initialTopics);
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -55,7 +45,7 @@ export function useTopicsSection({ subjectId, initialTopics }: Args) {
           table: 'topics',
           filter: `subject_id=eq.${subjectId}`,
         },
-        (payload: RealtimePostgresChangesPayload<TopicsSectionTopic>) => {
+        (payload: RealtimePostgresChangesPayload<TopicRow>) => {
           if (payload.eventType !== 'INSERT') return;
           const row = payload.new;
           setTopics((prev) => {
@@ -72,7 +62,7 @@ export function useTopicsSection({ subjectId, initialTopics }: Args) {
           table: 'topics',
           filter: `subject_id=eq.${subjectId}`,
         },
-        (payload: RealtimePostgresChangesPayload<TopicsSectionTopic>) => {
+        (payload: RealtimePostgresChangesPayload<TopicRow>) => {
           if (payload.eventType !== 'UPDATE') return;
           const row = payload.new;
           setTopics((prev) => prev.map((t) => (t.id === row.id ? row : t)));

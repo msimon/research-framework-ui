@@ -1,17 +1,16 @@
+'use client';
+
 import Link from 'next/link';
 
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import { Button } from '@/ui/components/ui/button';
 
-type SubjectSummary = {
-  id: string;
-  slug: string;
-  title: string;
-  status: string;
-  seed_problem_statement: string | null;
-  updated_at: string;
-};
+type SubjectListItem = Pick<
+  Database['public']['Tables']['subjects']['Row'],
+  'id' | 'slug' | 'title' | 'status' | 'seed_problem_statement' | 'updated_at'
+>;
 
-export function SubjectsListView({ subjects }: { subjects: SubjectSummary[] }) {
+export function SubjectsListView({ subjects }: { subjects: SubjectListItem[] }) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">

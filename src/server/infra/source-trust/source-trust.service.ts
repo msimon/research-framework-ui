@@ -6,9 +6,11 @@ import {
   type SourceTrustClassification,
   sourceTrustBatchSchema,
 } from '@/prompts/source-trust/source-trust.schema';
-import { anthropicClassifierModel } from '@/server/infra/anthropic/anthropic.client';
+import {
+  anthropicClassifierModel,
+  anthropicProviderOptions,
+} from '@/server/infra/anthropic/anthropic.client';
 import { serverConfig } from '@/shared/config/server.config';
-import { extractDomain } from '@/shared/lib/utils/extract-domain.util';
 
 export type SourceTrustInput = {
   url: string;
@@ -42,6 +44,7 @@ export async function classifySources(
     output: Output.object({ schema: sourceTrustBatchSchema }),
     system: SOURCE_TRUST_SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: userMessage }],
+    providerOptions: { anthropic: anthropicProviderOptions },
   });
 
   const byUrl = new Map<string, SourceTrustClassification>();
@@ -82,4 +85,13 @@ function buildClassifierUserMessage(inputs: ReadonlyArray<SourceTrustInput>): st
     '',
     ...lines,
   ].join('\n');
+}
+
+function extractDomain(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.startsWith('www.') ? host.slice(4) : host;
+  } catch {
+    return null;
+  }
 }

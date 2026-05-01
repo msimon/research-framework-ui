@@ -41,6 +41,15 @@ export function useInterview({ subjectId, subjectSlug, initialTurns, initialStat
       })
       .subscribe((s, err) => console.log('[rt:broadcast] status', s, err ?? ''));
 
+    const upsertTurn = (row: InterviewTurn) => {
+      setTurns((prev) => {
+        const next = prev.filter((t) => t.id !== row.id);
+        next.push(row);
+        next.sort((a, b) => a.turn_number - b.turn_number);
+        return next;
+      });
+    };
+
     const turnsChannel = supabaseClient
       .channel(`turns:interview:${subjectId}`)
       .on(
@@ -52,16 +61,9 @@ export function useInterview({ subjectId, subjectSlug, initialTurns, initialStat
           filter: `subject_id=eq.${subjectId}`,
         },
         (payload: RealtimePostgresChangesPayload<InterviewTurn>) => {
-          console.log('[rt:turns] event', payload.eventType, payload);
-          if (payload.eventType === 'INSERT') setThinking(false);
           if (payload.eventType === 'DELETE') return;
-          const row = payload.new;
-          setTurns((prev) => {
-            const next = prev.filter((t) => t.id !== row.id);
-            next.push(row);
-            next.sort((a, b) => a.turn_number - b.turn_number);
-            return next;
-          });
+          if (payload.eventType === 'INSERT') setThinking(false);
+          upsertTurn(payload.new);
         },
       )
       .subscribe((s, err) => console.log('[rt:turns] status', s, err ?? ''));
