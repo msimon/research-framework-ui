@@ -1,3 +1,5 @@
+'use client';
+
 export function AuthCodeErrorView() {
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">

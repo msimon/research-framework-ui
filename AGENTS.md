@@ -60,10 +60,11 @@
 - `PLAN.md` — product scope, milestones, and the unified agent architecture.
 - `README.md` — setup + context.
 
-## Code review
+## Convention lint
 
-- The `review-code-change` skill is loaded automatically when reviewing local code changes, or invoke manually with `/review-code-change`.
-- Milestones 3.5 and 5.5 are dedicated code-review checkpoints — run `/review-code-change` across the work in preceding milestones and fix everything reported before moving on.
+- The `lint-code-change` skill is loaded automatically when reviewing local code changes pre-commit; invoke manually with `/lint-code-change`. For a workspace-wide check (every commit since branch divergence + uncommitted), use `/lint-workspace-change`.
+- Both skills run a `convention-linter` subagent against the project checklist. They catch architecture, naming, and convention violations — they are NOT a substitute for actual code review (logic bugs, edge cases, semantic correctness).
+- Milestones 3.5 and 5.5 are dedicated lint checkpoints — run `/lint-code-change` across the work in preceding milestones and fix everything reported before moving on.
 
 ## Package Management
 

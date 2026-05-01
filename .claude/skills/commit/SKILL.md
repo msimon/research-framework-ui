@@ -11,11 +11,11 @@ Create a commit for the current changes.
 ## Steps
 
 1. Run `git status` and `git diff HEAD` to understand what changed.
-2. Run the `/review-code-change` skill on the current changes.
-3. If the review finds issues, present them and ask the user: **fix the issues first, or commit anyway?**
+2. Run the `/lint-code-change` skill on the current changes.
+3. If the lint finds issues, present them and ask the user: **fix the issues first, or commit anyway?**
    - If the user chooses to fix → apply fixes, then loop back to step 1.
    - If the user chooses to commit anyway → continue to step 4.
-   - If the review finds no issues → continue to step 4.
+   - If the lint finds no issues → continue to step 4.
 4. Stage all relevant changes (prefer adding specific files over `git add -A`).
 5. Write a commit message following the style rules below.
 6. Commit and confirm the result.

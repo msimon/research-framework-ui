@@ -1,5 +1,5 @@
 import type { CitationEntry } from '@/shared/citation.type';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
+import type { SupportingSource } from '@/shared/supporting-source.type';
 
 export type DeepResearchTurnState = {
   id: string;

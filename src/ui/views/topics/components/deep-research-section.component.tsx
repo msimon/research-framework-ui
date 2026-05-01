@@ -5,22 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { startSessionAction } from '@/app/_actions/deep-research.action';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import { Button } from '@/ui/components/ui/button';
 import { Textarea } from '@/ui/components/ui/textarea';
 
-export type DeepResearchSessionSummary = {
-  id: string;
-  seed_question: string;
-  status: string;
-  turn_count: number;
-  last_turn_at: string | null;
-  created_at: string;
-};
+type SessionRow = Database['public']['Tables']['deep_research_sessions']['Row'];
 
 type Props = {
   subjectSlug: string;
   topicSlug: string;
-  sessions: DeepResearchSessionSummary[];
+  sessions: SessionRow[];
 };
 
 export function DeepResearchSection({ subjectSlug, topicSlug, sessions }: Props) {

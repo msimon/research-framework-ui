@@ -7,9 +7,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { triggerLandscapeAction } from '@/app/_actions/landscape.action';
 import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseClient } from '@/shared/lib/supabase/client';
-import type { SupportingSource } from '@/ui/types/supporting-source.type';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
+import type { SupportingSource } from '@/shared/supporting-source.type';
+import type { SourceTrust, SourceTrustMap } from '@/ui/types/source-trust.type';
 import type { LandscapeState } from '@/ui/views/topics/types/landscape-state.type';
 import type { ToolCallChip } from '@/ui/views/topics/types/tool-call-chip.type';
+
+type SourceTrustRow = Database['public']['Tables']['source_trust']['Row'];
 
 type LandscapeEvent =
   | { type: 'status'; status: string }
@@ -26,9 +30,10 @@ type Args = {
   subjectSlug: string;
   topicSlug: string;
   initialLandscape: LandscapeState | null;
+  initialTrustMap: SourceTrustMap;
 };
 
-export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args) {
+export function useLandscape({ subjectSlug, topicSlug, initialLandscape, initialTrustMap }: Args) {
   const router = useRouter();
   const [landscape, setLandscape] = useState<LandscapeState | null>(initialLandscape);
   const [streaming, setStreaming] = useState(initialLandscape?.status === 'streaming');
@@ -39,6 +44,7 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args)
   const [toolCalls, setToolCalls] = useState<ToolCallChip[]>([]);
   const [error, setError] = useState<string | null>(initialLandscape?.error_message ?? null);
   const [reasoningOpen, setReasoningOpen] = useState(true);
+  const [trustMap, setTrustMap] = useState<SourceTrustMap>(initialTrustMap);
 
   const landscapeId = landscape?.id ?? null;
 
@@ -79,6 +85,9 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args)
           case 'complete':
             setStreaming(false);
             setReasoningOpen(false);
+            // Re-run the page so the parent TopicView picks up the new
+            // landscape status (which gates the Deep Research section) and
+            // any sessions created in the meantime.
             router.refresh();
             break;
           case 'error':
@@ -120,6 +129,25 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args)
 
     return () => {
       supabaseClient.removeChannel(rows);
+    };
+  }, [landscapeId]);
+
+  useEffect(() => {
+    if (!landscapeId) return;
+    const channel = supabaseClient
+      .channel(`source_trust:landscape:${landscapeId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'source_trust' },
+        (payload: RealtimePostgresChangesPayload<SourceTrustRow>) => {
+          if (payload.eventType !== 'INSERT') return;
+          const row = payload.new;
+          setTrustMap((prev) => ({ ...prev, [row.url]: rowToTrust(row) }));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabaseClient.removeChannel(channel);
     };
   }, [landscapeId]);
 
@@ -195,6 +223,17 @@ export function useLandscape({ subjectSlug, topicSlug, initialLandscape }: Args)
     displayContent,
     hasContent,
     isWorking,
+    trustMap,
+  };
+}
+
+function rowToTrust(row: SourceTrustRow): SourceTrust {
+  return {
+    url: row.url,
+    domain: row.domain,
+    category: row.category,
+    trust_score: row.trust_score,
+    rationale: row.rationale,
   };
 }
 

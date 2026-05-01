@@ -1,5 +1,5 @@
 import 'server-only';
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { INIT_SUBJECT_SYSTEM_PROMPT } from '@/prompts/init-subject/init-subject.prompt';
 import { type AgentStep, agentStepResponseSchema } from '@/prompts/init-subject/init-subject.schema';
 import {
@@ -94,9 +94,9 @@ async function runInitInterviewStep(input: StepInterviewInput): Promise<StepInte
     const thinkingEvent: InterviewBroadcastEvent = { type: 'thinking', subjectId: subject.id };
     broadcast.send({ type: 'broadcast', event: 'event', payload: thinkingEvent });
 
-    const { object } = await generateObject({
+    const result = await generateText({
       model: anthropicModel(),
-      schema: agentStepResponseSchema,
+      output: Output.object({ schema: agentStepResponseSchema }),
       system: {
         role: 'system',
         content: INIT_SUBJECT_SYSTEM_PROMPT,
@@ -110,7 +110,7 @@ async function runInitInterviewStep(input: StepInterviewInput): Promise<StepInte
       providerOptions: { anthropic: anthropicProviderOptions },
     });
 
-    const step = enforcePriorsChoices(object.step);
+    const step = enforcePriorsChoices(result.output.step);
     const nextTurnNumber = turns.length + 1;
     const turn = await createInterviewTurn({
       subjectId: subject.id,

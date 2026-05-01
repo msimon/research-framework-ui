@@ -3,6 +3,7 @@
 import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { LexiconView } from '@/ui/components/lexicon-view.component';
 import { SectionNav } from '@/ui/components/section-nav';
+import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import { Composer } from '@/ui/views/deep-research/components/composer.component';
 import { TurnBlock } from '@/ui/views/deep-research/components/turn-block.component';
 import { useDeepResearchSession } from '@/ui/views/deep-research/hooks/useDeepResearchSession.hook';
@@ -16,10 +17,11 @@ type Props = {
   initialStatus: string;
   initialLexicon: LexiconEntry[];
   initialTurns: DeepResearchTurnState[];
+  initialTrustMap: SourceTrustMap;
 };
 
 export function SessionChat(props: Props) {
-  const { turns, live, sessionStatus, lexicon, error, pending, activeTurn, canSubmit, submit } =
+  const { turns, live, sessionStatus, lexicon, error, pending, activeTurn, canSubmit, submit, trustMap } =
     useDeepResearchSession(props);
 
   const sections = turns.map((t) => ({ id: `turn-${t.turn_number}`, label: `Turn ${t.turn_number}` }));
@@ -31,7 +33,12 @@ export function SessionChat(props: Props) {
       <ol className="flex flex-col gap-6">
         {turns.map((turn) => (
           <li key={turn.id} id={`turn-${turn.turn_number}`} className="scroll-mt-16">
-            <TurnBlock turn={turn} live={live[turn.id]} isActive={activeTurn?.id === turn.id} />
+            <TurnBlock
+              turn={turn}
+              live={live[turn.id]}
+              isActive={activeTurn?.id === turn.id}
+              trustMap={trustMap}
+            />
           </li>
         ))}
       </ol>

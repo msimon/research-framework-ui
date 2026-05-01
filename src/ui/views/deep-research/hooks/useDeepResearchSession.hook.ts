@@ -5,8 +5,12 @@ import { useEffect, useState, useTransition } from 'react';
 import { submitTurnAction } from '@/app/_actions/deep-research.action';
 import type { LexiconEntry } from '@/prompts/landscape/landscape.schema';
 import { supabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
+import type { SourceTrust, SourceTrustMap } from '@/ui/types/source-trust.type';
 import type { DeepResearchTurnState } from '@/ui/views/deep-research/types/deep-research-turn-state.type';
 import type { LiveTurnBuffer } from '@/ui/views/deep-research/types/live-turn-buffer.type';
+
+type SourceTrustRow = Database['public']['Tables']['source_trust']['Row'];
 
 type SessionEvent =
   | { type: 'status'; status: string }
@@ -29,6 +33,7 @@ type Args = {
   initialStatus: string;
   initialLexicon: LexiconEntry[];
   initialTurns: DeepResearchTurnState[];
+  initialTrustMap: SourceTrustMap;
 };
 
 export function useDeepResearchSession(args: Args) {
@@ -38,6 +43,7 @@ export function useDeepResearchSession(args: Args) {
   const [live, setLive] = useState<Record<string, LiveTurnBuffer>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [trustMap, setTrustMap] = useState<SourceTrustMap>(args.initialTrustMap);
 
   useEffect(() => {
     const channel = supabaseClient
@@ -45,6 +51,7 @@ export function useDeepResearchSession(args: Args) {
       .on('broadcast', { event: 'event' }, ({ payload }: { payload: BroadcastPayload }) => {
         if (!payload || typeof payload !== 'object' || !('type' in payload)) return;
         const { turnId } = payload;
+        if (payload.type === 'complete') return;
         setLive((prev) => {
           const existing = prev[turnId] ?? {
             text: '',
@@ -116,6 +123,16 @@ export function useDeepResearchSession(args: Args) {
   }, [args.sessionId]);
 
   useEffect(() => {
+    const upsertTurn = (next: DeepResearchTurnState) => {
+      setTurns((prev) => {
+        const idx = prev.findIndex((t) => t.id === next.id);
+        if (idx === -1) return [...prev, next].sort((a, b) => a.turn_number - b.turn_number);
+        const clone = [...prev];
+        clone[idx] = next;
+        return clone;
+      });
+    };
+
     const rows = supabaseClient
       .channel(`deep_research_turns:session:${args.sessionId}`)
       .on(
@@ -128,14 +145,7 @@ export function useDeepResearchSession(args: Args) {
         },
         (payload: RealtimePostgresChangesPayload<DeepResearchTurnState>) => {
           if (payload.eventType === 'DELETE') return;
-          const next = payload.new;
-          setTurns((prev) => {
-            const idx = prev.findIndex((t) => t.id === next.id);
-            if (idx === -1) return [...prev, next].sort((a, b) => a.turn_number - b.turn_number);
-            const clone = [...prev];
-            clone[idx] = next;
-            return clone;
-          });
+          upsertTurn(payload.new);
         },
       )
       .subscribe();
@@ -191,6 +201,24 @@ export function useDeepResearchSession(args: Args) {
     };
   }, [args.subjectId]);
 
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel(`source_trust:session:${args.sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'source_trust' },
+        (payload: RealtimePostgresChangesPayload<SourceTrustRow>) => {
+          if (payload.eventType !== 'INSERT') return;
+          const row = payload.new;
+          setTrustMap((prev) => ({ ...prev, [row.url]: rowToTrust(row) }));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabaseClient.removeChannel(channel);
+    };
+  }, [args.sessionId]);
+
   function submit(userText: string) {
     const trimmed = userText.trim();
     if (!trimmed) return;
@@ -217,5 +245,16 @@ export function useDeepResearchSession(args: Args) {
     activeTurn,
     canSubmit,
     submit,
+    trustMap,
+  };
+}
+
+function rowToTrust(row: SourceTrustRow): SourceTrust {
+  return {
+    url: row.url,
+    domain: row.domain,
+    category: row.category,
+    trust_score: row.trust_score,
+    rationale: row.rationale,
   };
 }

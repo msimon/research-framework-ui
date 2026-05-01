@@ -1,35 +1,22 @@
+'use client';
+
 import Link from 'next/link';
 
-import { getSubject } from '@/server/domain/subjects/subjects.command';
-import { listTopicsForSubject } from '@/server/domain/topics/topics.command';
-import { getCurrentUserId } from '@/server/lib/utils/currentUser';
+import type { Subject } from '@/server/domain/subjects/subjects.repository';
+import type { Database } from '@/shared/lib/supabase/supabase.types';
 import { LexiconView } from '@/ui/components/lexicon-view.component';
 import { Markdown } from '@/ui/components/markdown';
 import { SectionNav } from '@/ui/components/section-nav';
 import { TopicsSection } from '@/ui/views/subjects/topics-section.view';
 
+type TopicRow = Database['public']['Tables']['topics']['Row'];
+
 type Props = {
-  slug: string;
+  subject: Subject;
+  topics: TopicRow[];
 };
 
-export async function SubjectDetailView({ slug }: Props) {
-  const userId = await getCurrentUserId();
-  const subject = await getSubject(userId, slug);
-  const topics = await listTopicsForSubject(subject.id);
-
-  const initialTopics = topics.map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    title: t.title,
-    pitch: t.pitch,
-    rationale: t.rationale,
-    category: t.category,
-    status: t.status,
-    sort_order: t.sort_order,
-    discover_hint: t.discover_hint,
-    created_at: t.created_at,
-  }));
-
+export function SubjectDetailView({ subject, topics }: Props) {
   const sections = [
     { id: 'topics', label: 'Topics' },
     ...(subject.research_brief_md ? [{ id: 'research-brief', label: 'Research brief' }] : []),
@@ -50,7 +37,7 @@ export async function SubjectDetailView({ slug }: Props) {
       <SectionNav sections={sections} />
 
       <div id="topics" className="scroll-mt-16">
-        <TopicsSection subjectId={subject.id} subjectSlug={subject.slug} initialTopics={initialTopics} />
+        <TopicsSection subjectId={subject.id} subjectSlug={subject.slug} initialTopics={topics} />
       </div>
 
       {subject.research_brief_md ? (

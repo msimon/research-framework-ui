@@ -1,5 +1,7 @@
+import type { CitationEntry } from '@/shared/citation.type';
 import { supabaseUser } from '@/shared/lib/supabase/server';
-import type { Database } from '@/shared/lib/supabase/supabase.types';
+import type { Database, Json } from '@/shared/lib/supabase/supabase.types';
+import type { SupportingSource } from '@/shared/supporting-source.type';
 
 type SessionRow = Database['public']['Tables']['deep_research_sessions']['Row'];
 type SessionInsert = Database['public']['Tables']['deep_research_sessions']['Insert'];
@@ -8,10 +10,42 @@ type TurnRow = Database['public']['Tables']['deep_research_turns']['Row'];
 type TurnInsert = Database['public']['Tables']['deep_research_turns']['Insert'];
 type TurnUpdate = Database['public']['Tables']['deep_research_turns']['Update'];
 
+// Domain Turn type — overrides the auto-generated `citation_map: Json` and
+// `supporting_sources: Json` with their known shapes so call sites get typed
+// arrays without per-call casts. Both columns are written from server-built
+// arrays (see `deep-research.command.ts`), so the cast at the repo boundary is
+// sound. Null is normalized to an empty array. `tool_calls` and `insights`
+// stay as raw `Json` because they are produced and consumed via Zod schemas
+// inside the command, not read directly by call sites.
+export type Turn = Omit<TurnRow, 'citation_map' | 'supporting_sources'> & {
+  citation_map: CitationEntry[];
+  supporting_sources: SupportingSource[];
+};
+export type TurnPatch = Omit<TurnUpdate, 'citation_map' | 'supporting_sources'> & {
+  citation_map?: CitationEntry[];
+  supporting_sources?: SupportingSource[];
+};
+
 const SESSION_COLUMNS =
   'id, topic_id, seed_question, status, summary_md, turn_count, last_turn_at, closed_at, created_at, updated_at';
 const TURN_COLUMNS =
   'id, session_id, turn_number, role, user_text, findings_md, my_read_md, followup_question, reasoning_md, tool_calls, insights, citation_map, supporting_sources, model_used, workflow_instance_id, status, error_message, created_at, updated_at';
+
+function turnFromRow(row: TurnRow): Turn {
+  return {
+    ...row,
+    citation_map: (row.citation_map as CitationEntry[] | null) ?? [],
+    supporting_sources: (row.supporting_sources as SupportingSource[] | null) ?? [],
+  };
+}
+
+function turnToUpdate(patch: TurnPatch): TurnUpdate {
+  const { citation_map, supporting_sources, ...rest } = patch;
+  const out: TurnUpdate = { ...rest };
+  if (citation_map !== undefined) out.citation_map = citation_map as unknown as Json;
+  if (supporting_sources !== undefined) out.supporting_sources = supporting_sources as unknown as Json;
+  return out;
+}
 
 export async function findSessionById(sessionId: string): Promise<SessionRow | null> {
   const supabase = await supabaseUser();
@@ -43,7 +77,7 @@ export async function listSessionsForTopic(topicId: string): Promise<SessionRow[
   return data ?? [];
 }
 
-export async function findTurnById(turnId: string): Promise<TurnRow | null> {
+export async function findTurnById(turnId: string): Promise<Turn | null> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase
     .from('deep_research_turns')
@@ -52,16 +86,16 @@ export async function findTurnById(turnId: string): Promise<TurnRow | null> {
     .maybeSingle();
 
   if (error) throw new Error(`Failed to load deep-research turn: ${error.message}`);
-  return data;
+  return data ? turnFromRow(data) : null;
 }
 
-export async function getTurnById(turnId: string): Promise<TurnRow> {
+export async function getTurnById(turnId: string): Promise<Turn> {
   const turn = await findTurnById(turnId);
   if (!turn) throw new Error('Deep-research turn not found');
   return turn;
 }
 
-export async function listTurnsForSession(sessionId: string): Promise<TurnRow[]> {
+export async function listTurnsForSession(sessionId: string): Promise<Turn[]> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase
     .from('deep_research_turns')
@@ -70,7 +104,7 @@ export async function listTurnsForSession(sessionId: string): Promise<TurnRow[]>
     .order('turn_number', { ascending: true });
 
   if (error) throw new Error(`Failed to list deep-research turns: ${error.message}`);
-  return data ?? [];
+  return (data ?? []).map(turnFromRow);
 }
 
 export async function createSession(row: SessionInsert): Promise<SessionRow> {
@@ -85,7 +119,7 @@ export async function createSession(row: SessionInsert): Promise<SessionRow> {
   return data;
 }
 
-export async function createTurn(row: TurnInsert): Promise<TurnRow> {
+export async function createTurn(row: TurnInsert): Promise<Turn> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase
     .from('deep_research_turns')
@@ -94,7 +128,7 @@ export async function createTurn(row: TurnInsert): Promise<TurnRow> {
     .single();
 
   if (error) throw new Error(`Failed to create deep-research turn: ${error.message}`);
-  return data;
+  return turnFromRow(data);
 }
 
 export async function updateSession(sessionId: string, patch: SessionUpdate): Promise<SessionRow> {
@@ -110,15 +144,15 @@ export async function updateSession(sessionId: string, patch: SessionUpdate): Pr
   return data;
 }
 
-export async function updateTurn(turnId: string, patch: TurnUpdate): Promise<TurnRow> {
+export async function updateTurn(turnId: string, patch: TurnPatch): Promise<Turn> {
   const supabase = await supabaseUser();
   const { data, error } = await supabase
     .from('deep_research_turns')
-    .update(patch)
+    .update(turnToUpdate(patch))
     .eq('id', turnId)
     .select(TURN_COLUMNS)
     .single();
 
   if (error) throw new Error(`Failed to update deep-research turn: ${error.message}`);
-  return data;
+  return turnFromRow(data);
 }

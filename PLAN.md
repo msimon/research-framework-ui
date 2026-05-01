@@ -276,7 +276,7 @@ Each `SKILL.md` in `/research-framwork/skills/*` ports to a TS template under `p
 - `src/shared/lib/sentry/*`, `instrumentation*.ts`
 - `supabase/{config.toml,seed.sql}` + baseline migration `20260224161000_template_baseline_users_auth.sql`
 - `scripts/{generate-migration,prepare-supabase-test,run-integration-tests}.mjs`
-- `.claude/skills/{commit,database-workflow,enter-worktree,leave-worktree,review-code-change,rls-conventions,architecture-diagrams}`
+- `.claude/skills/{commit,database-workflow,enter-worktree,leave-worktree,lint-code-change,lint-workspace-change,rls-conventions,architecture-diagrams}`
 - `docs/{adr,architecture}/` empty scaffolds
 
 **Drop:** ramble, tasks, categories, trash, home views; deepgram; openai ramble prompt; Todo-specific migrations; Todo-specific ADRs.
@@ -297,10 +297,10 @@ Each `SKILL.md` in `/research-framwork/skills/*` ports to a TS template under `p
 | **1** | **Subjects + Generative Interview** | `subjects` + `init_interview_turns` + RLS, `InitInterviewWorkflow`, `/subjects` + `/subjects/new` |
 | **2** | **Discover + Topics** | `topics` table, `DiscoverWorkflow`, `/subjects/[slug]` with streamed topics, `add-topics` parent/child |
 | **3** | **Landscape** | `landscapes` + `sources` tables, `LandscapeWorkflow`, landscape page with streaming markdown |
-| **3.5** | **Code review** | Run `/review-code-change` across everything in milestones 0–3; fix all reported issues before moving on |
+| **3.5** | **Convention lint** | Run `/lint-code-change` across everything in milestones 0–3; fix all reported issues before moving on |
 | **4** | **Deep-research** | `sessions` + `turns` tables, `DeepResearchTurnWorkflow`, Supabase broadcast chat, `resume`, auto-promote insights on close |
 | **5** | **Design pass** | UI redesign; empty/loading/error states |
-| **5.5** | **Code review** | Run `/review-code-change` across milestones 4–5; fix all reported issues |
+| **5.5** | **Convention lint** | Run `/lint-code-change` across milestones 4–5; fix all reported issues |
 | **Post-MVP** | | `synthesize` · `solution` · BYOK · rate limits · markdown editing · Miniflare tests |
 
 ## 8. Outstanding prerequisites (user)

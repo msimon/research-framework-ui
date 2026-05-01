@@ -1,7 +1,9 @@
 'use client';
 
 import { Markdown } from '@/ui/components/markdown';
+import { SourceRow } from '@/ui/components/source-row.component';
 import { Button } from '@/ui/components/ui/button';
+import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import { LandscapeExplainer } from '@/ui/views/topics/components/landscape-explainer.component';
 import { ReasoningBlock } from '@/ui/views/topics/components/reasoning-block.component';
 import { StreamingHeader } from '@/ui/views/topics/components/streaming-header.component';
@@ -12,9 +14,10 @@ type Props = {
   subjectSlug: string;
   topicSlug: string;
   initialLandscape: LandscapeState | null;
+  initialTrustMap: SourceTrustMap;
 };
 
-export function Landscape({ subjectSlug, topicSlug, initialLandscape }: Props) {
+export function Landscape({ subjectSlug, topicSlug, initialLandscape, initialTrustMap }: Props) {
   const {
     landscape,
     displaySources,
@@ -27,7 +30,8 @@ export function Landscape({ subjectSlug, topicSlug, initialLandscape }: Props) {
     displayContent,
     hasContent,
     isWorking,
-  } = useLandscape({ subjectSlug, topicSlug, initialLandscape });
+    trustMap,
+  } = useLandscape({ subjectSlug, topicSlug, initialLandscape, initialTrustMap });
 
   const showExplainer = isWorking && !hasContent;
 
@@ -101,25 +105,14 @@ export function Landscape({ subjectSlug, topicSlug, initialLandscape }: Props) {
                 ? displaySources.slice(0, idx + 1).filter((s) => s.cited).length
                 : null;
               return (
-                <li
+                <SourceRow
                   key={source.url}
-                  id={citedPosition !== null ? `source-${citedPosition}` : undefined}
-                  className="scroll-mt-16 p-3 text-sm"
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {citedPosition !== null ? `${citedPosition}.` : '·'}
-                    </span>
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium hover:underline"
-                    >
-                      {source.title || source.url}
-                    </a>
-                  </div>
-                </li>
+                  url={source.url}
+                  title={source.title}
+                  citedPosition={citedPosition}
+                  anchorId={citedPosition !== null ? `source-${citedPosition}` : undefined}
+                  trust={trustMap[source.url]}
+                />
               );
             })}
           </ul>
