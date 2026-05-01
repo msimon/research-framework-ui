@@ -36,12 +36,11 @@ export async function classifySources(
   }
   if (dedupedByUrl.size === 0) return [];
 
+  // 1-based index → input entry. The model references entries by index,
+  // never by URL, so URL-shape hallucinations (JSON-syntax leaks, suffix
+  // bleed across adjacent entries) are physically impossible.
   const ordered = [...dedupedByUrl.values()];
   const userMessage = buildClassifierUserMessage(ordered);
-
-  console.info(
-    `[source-trust] classifying ${ordered.length} url(s):\n${ordered.map((e, i) => `  ${i + 1}. ${e.url} — ${e.title ?? '(no title)'}`).join('\n')}`,
-  );
 
   const result = await generateText({
     model: anthropicClassifierModel(),
@@ -51,25 +50,21 @@ export async function classifySources(
     providerOptions: { anthropic: anthropicClassifierProviderOptions },
   });
 
-  console.info(
-    `[source-trust] classifier returned ${result.output.classifications.length} row(s):\n${JSON.stringify(result.output.classifications, null, 2)}`,
-  );
-
-  const byUrl = new Map<string, SourceTrustClassification>();
-  const hallucinatedUrls: string[] = [];
+  const byIndex = new Map<number, SourceTrustClassification>();
+  const outOfRangeIndices: number[] = [];
   for (const c of result.output.classifications) {
-    if (dedupedByUrl.has(c.url)) {
-      byUrl.set(c.url, c);
+    if (c.index >= 1 && c.index <= ordered.length) {
+      if (!byIndex.has(c.index)) byIndex.set(c.index, c);
     } else {
-      hallucinatedUrls.push(c.url);
+      outOfRangeIndices.push(c.index);
     }
   }
-  if (hallucinatedUrls.length > 0) {
+  if (outOfRangeIndices.length > 0) {
     console.warn(
-      `[source-trust] classifier returned ${hallucinatedUrls.length} url(s) not in the input batch:\n${hallucinatedUrls.map((u) => `  - ${u}`).join('\n')}`,
+      `[source-trust] classifier returned ${outOfRangeIndices.length} out-of-range index(es) for an input of ${ordered.length}: ${outOfRangeIndices.join(', ')}`,
     );
   }
-  if (byUrl.size === 0) {
+  if (byIndex.size === 0) {
     console.warn(`[source-trust] classifier returned no usable rows for ${ordered.length} url(s)`);
     return [];
   }
@@ -77,16 +72,25 @@ export async function classifySources(
   const rows: SourceTrustClassificationRow[] = [];
   const droppedNoClassification: string[] = [];
   const droppedBadDomain: string[] = [];
-  for (const entry of ordered) {
-    const c = byUrl.get(entry.url);
+  const domainMismatches: Array<{ index: number; expected: string; got: string }> = [];
+  ordered.forEach((entry, i) => {
+    const c = byIndex.get(i + 1);
     if (!c) {
       droppedNoClassification.push(entry.url);
-      continue;
+      return;
     }
     const domain = extractDomain(entry.url);
     if (!domain) {
       droppedBadDomain.push(entry.url);
-      continue;
+      return;
+    }
+    const echoedDomain = c.domain
+      .trim()
+      .toLowerCase()
+      .replace(/^www\./, '');
+    if (echoedDomain !== domain) {
+      domainMismatches.push({ index: i + 1, expected: domain, got: c.domain });
+      return;
     }
     rows.push({
       url: entry.url,
@@ -96,8 +100,15 @@ export async function classifySources(
       trust_score: clampScore(c.trust_score),
       classified_by_model: serverConfig.llm.classifierModel,
     });
-  }
+  });
 
+  if (domainMismatches.length > 0) {
+    console.warn(
+      `[source-trust] ${domainMismatches.length} entry/entries dropped because the model's echoed domain disagreed with the input host (likely index↔URL misalignment in the model's output):\n${domainMismatches
+        .map(({ index, expected, got }) => `  - #${index}: expected "${expected}", model wrote "${got}"`)
+        .join('\n')}`,
+    );
+  }
   if (droppedNoClassification.length > 0) {
     console.warn(
       `[source-trust] ${droppedNoClassification.length} input url(s) not classified by the model:\n${droppedNoClassification.map((u) => `  - ${u}`).join('\n')}`,
@@ -108,24 +119,23 @@ export async function classifySources(
       `[source-trust] ${droppedBadDomain.length} url(s) dropped due to unparseable host:\n${droppedBadDomain.map((u) => `  - ${u}`).join('\n')}`,
     );
   }
-  console.info(
-    `[source-trust] kept ${rows.length}/${ordered.length} classifications (dropped: no-class=${droppedNoClassification.length}, bad-domain=${droppedBadDomain.length}, hallucinated=${hallucinatedUrls.length})`,
-  );
 
   return rows;
 }
 
 function buildClassifierUserMessage(inputs: ReadonlyArray<SourceTrustInput>): string {
-  const lines = inputs.map((entry, idx) => {
+  // Each entry is explicitly labeled with `index: N` so the model copies
+  // the integer rather than inferring its position by counting.
+  const blocks = inputs.map((entry, i) => {
     const trimmed = entry.title?.trim();
     const title = trimmed || '_(no title)_';
-    return `${idx + 1}. url: ${entry.url}\n   title: ${title}`;
+    return `index: ${i + 1}\nurl: ${entry.url}\ntitle: ${title}`;
   });
   return [
-    'Classify the authority of each URL below for research-grade citation. Return one entry per URL in the same order, preserving each URL exactly as given.',
+    `Classify the authority of each URL below for research-grade citation. Each entry is labeled with an explicit \`index:\` integer — copy that integer back into the \`index\` field of the matching output entry. There are ${inputs.length} entries.`,
     '',
-    ...lines,
-  ].join('\n');
+    ...blocks,
+  ].join('\n\n');
 }
 
 function clampScore(score: number): number {

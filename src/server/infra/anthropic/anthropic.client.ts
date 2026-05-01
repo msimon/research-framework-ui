@@ -22,10 +22,11 @@ export const anthropicProviderOptions = {
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;
 
-// Haiku doesn't support adaptive thinking, but a modest fixed budget lets
-// the classifier sanity-check its own structured output before it lands —
-// it has been observed leaking JSON-syntax fragments into the `url` field,
-// and having room to think gives it a chance to catch that mid-emission.
+// Source-trust classification is a host-name lookup most of the time, so
+// adaptive thinking at medium effort lets the model skip deliberation on
+// easy entries and spend tokens only on ambiguous ones (e.g. is a
+// professional society a `standards-body` or `company`).
 export const anthropicClassifierProviderOptions = {
-  thinking: { type: 'enabled', budgetTokens: 4096 },
+  thinking: { type: 'adaptive', display: 'omitted' },
+  effort: 'medium',
 } satisfies AnthropicProviderOptions;
