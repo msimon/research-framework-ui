@@ -101,7 +101,7 @@
 
 @layer utilities {
   .citation-flash {
-    animation: citation-flash 3s ease-in-out;
+    animation: citation-flash 4s ease-in-out;
   }
 }
 
@@ -111,8 +111,8 @@
     background-color: transparent;
   }
 
-  10%,
-  70% {
+  35%,
+  75% {
     background-color: color-mix(in oklch, var(--primary) 15%, transparent);
   }
 }
