@@ -2,6 +2,8 @@
 
 import type { CitationEntry } from '@/shared/citation.type';
 import { Markdown } from '@/ui/components/markdown';
+import { SourceRow } from '@/ui/components/source-row.component';
+import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { ReasoningBlock } from '@/ui/views/deep-research/components/reasoning-block.component';
 import { StreamingHeader } from '@/ui/views/deep-research/components/streaming-header.component';
@@ -12,9 +14,10 @@ type Props = {
   turn: DeepResearchTurnState;
   live: LiveTurnBuffer | undefined;
   isActive: boolean;
+  trustMap: SourceTrustMap;
 };
 
-export function TurnBlock({ turn, live, isActive }: Props) {
+export function TurnBlock({ turn, live, isActive, trustMap }: Props) {
   const liveText = live?.text ?? '';
   const liveReasoning = live?.reasoning ?? '';
   const toolCalls = live?.toolCalls ?? [];
@@ -75,29 +78,18 @@ export function TurnBlock({ turn, live, isActive }: Props) {
                     ? turnSources.slice(0, idx + 1).filter((s) => s.cited).length
                     : null;
                   return (
-                    <li
+                    <SourceRow
                       key={source.url}
-                      id={
+                      url={source.url}
+                      title={source.title}
+                      citedPosition={citedPosition}
+                      anchorId={
                         citedPosition !== null
                           ? `turn-${turn.turn_number}-source-${citedPosition}`
                           : undefined
                       }
-                      className="scroll-mt-16 p-3 text-sm"
-                    >
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {citedPosition !== null ? `${citedPosition}.` : '·'}
-                        </span>
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium hover:underline"
-                        >
-                          {source.title || source.url}
-                        </a>
-                      </div>
-                    </li>
+                      trust={trustMap[source.url]}
+                    />
                   );
                 })}
               </ul>

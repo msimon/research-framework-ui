@@ -9,6 +9,10 @@ export function anthropicModel() {
   return provider(serverConfig.llm.model);
 }
 
+export function anthropicClassifierModel() {
+  return provider(serverConfig.llm.classifierModel);
+}
+
 export function anthropicWebSearchTool(options?: { maxUses?: number }) {
   return provider.tools.webSearch_20250305({ maxUses: options?.maxUses ?? 5 });
 }

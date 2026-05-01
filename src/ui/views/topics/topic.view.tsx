@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation';
 
 import { listSessionsForTopic } from '@/server/domain/deep-research/deep-research.repository';
 import { findLandscapeByTopic } from '@/server/domain/landscapes/landscapes.repository';
+import { findSourceTrustByUrls } from '@/server/domain/source-trust/source-trust.repository';
 import { getSubject } from '@/server/domain/subjects/subjects.command';
 import { findTopicBySlug } from '@/server/domain/topics/topics.repository';
 import { getCurrentUserId } from '@/server/lib/utils/currentUser';
 import type { CitationEntry } from '@/shared/citation.type';
 import { SectionNav } from '@/ui/components/section-nav';
+import type { SourceTrustMap } from '@/ui/types/source-trust.type';
 import type { SupportingSource } from '@/ui/types/supporting-source.type';
 import { DeepResearchSection } from '@/ui/views/topics/components/deep-research-section.component';
 import { Landscape } from '@/ui/views/topics/components/landscape.component';
@@ -25,6 +27,25 @@ export async function TopicView({ slug, topicSlug }: Props) {
 
   const landscape = await findLandscapeByTopic(topic.id);
   const sessions = await listSessionsForTopic(topic.id);
+
+  const landscapeCitations = (landscape?.citation_map as CitationEntry[] | null) ?? [];
+  const landscapeSupporting = (landscape?.supporting_sources as SupportingSource[] | null) ?? [];
+  const trustUrls = Array.from(
+    new Set([...landscapeCitations.map((c) => c.url), ...landscapeSupporting.map((s) => s.url)]),
+  );
+  const trustRows = await findSourceTrustByUrls(trustUrls);
+  const initialTrustMap: SourceTrustMap = Object.fromEntries(
+    trustRows.map((row) => [
+      row.url,
+      {
+        url: row.url,
+        domain: row.domain,
+        category: row.category,
+        trust_score: row.trust_score,
+        rationale: row.rationale,
+      },
+    ]),
+  );
 
   const sections = [
     { id: 'landscape', label: 'Landscape' },
@@ -52,14 +73,15 @@ export async function TopicView({ slug, topicSlug }: Props) {
               ? {
                   id: landscape.id,
                   content_md: landscape.content_md,
-                  citation_map: (landscape.citation_map as CitationEntry[] | null) ?? [],
-                  supporting_sources: (landscape.supporting_sources as SupportingSource[] | null) ?? [],
+                  citation_map: landscapeCitations,
+                  supporting_sources: landscapeSupporting,
                   status: landscape.status,
                   error_message: landscape.error_message,
                   updated_at: landscape.updated_at,
                 }
               : null
           }
+          initialTrustMap={initialTrustMap}
         />
       </div>
 

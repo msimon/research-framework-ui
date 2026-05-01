@@ -14,6 +14,10 @@ import {
   updateTurn,
 } from '@/server/domain/deep-research/deep-research.repository';
 import { findLandscapeByTopic } from '@/server/domain/landscapes/landscapes.repository';
+import {
+  findSourceTrustByUrls,
+  upsertSourceTrustRows,
+} from '@/server/domain/source-trust/source-trust.repository';
 import { getSubjectById, updateSubject } from '@/server/domain/subjects/subjects.repository';
 import { getTopicById, updateTopic } from '@/server/domain/topics/topics.repository';
 import {
@@ -21,10 +25,12 @@ import {
   anthropicProviderOptions,
   anthropicWebSearchTool,
 } from '@/server/infra/anthropic/anthropic.client';
+import { classifySources, type SourceTrustInput } from '@/server/infra/source-trust/source-trust.service';
 import { type EntityChannelName, supabaseBroadcastClient } from '@/server/infra/supabase/realtime';
 import { buildCitationOutput, type CitationBlock } from '@/server/lib/utils/build-citation-output.util';
 import { dedupSupportingAgainstCited } from '@/server/lib/utils/dedup-supporting-sources.util';
 import { mergeLexicon } from '@/server/lib/utils/merge-lexicon.util';
+import { uniqueByUrl } from '@/server/lib/utils/unique-by-url.util';
 import { waitForBroadcastSubscription } from '@/server/lib/utils/wait-for-broadcast-subscription.util';
 import type { CitationEntry } from '@/shared/citation.type';
 import { serverConfig } from '@/shared/config/server.config';
@@ -373,6 +379,28 @@ export async function runDeepResearchTurn(
     });
 
     send({ type: 'complete' });
+
+    // Hydrate the source-trust cache for any URLs not yet classified. Runs
+    // after `complete` is broadcast so the streaming UI hides immediately;
+    // badges then fade in via postgres_changes on `source_trust` as rows are
+    // upserted. The trailing work stays inside the parent `ctx.waitUntil`
+    // task, so the worker is kept alive until it resolves.
+    const sources: SourceTrustInput[] = [
+      ...citationMap.map((c) => ({ url: c.url, title: c.title })),
+      ...dedupedSupportingSources.map((s) => ({ url: s.url, title: s.title })),
+    ];
+    try {
+      const cached = await findSourceTrustByUrls(sources.map((s) => s.url));
+      const cachedUrls = new Set(cached.map((row) => row.url));
+      const missing = uniqueByUrl(sources).filter((s) => !cachedUrls.has(s.url));
+      if (missing.length > 0) {
+        const rows = await classifySources(missing);
+        if (rows.length > 0) await upsertSourceTrustRows(rows);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[deep-research] source-trust classification failed: ${message}`);
+    }
 
     return { turnId: input.turnId };
   } catch (error) {

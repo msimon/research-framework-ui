@@ -240,6 +240,42 @@ export type Database = {
           },
         ]
       }
+      source_trust: {
+        Row: {
+          category: string
+          classified_at: string
+          classified_by_model: string
+          created_at: string
+          domain: string
+          rationale: string
+          trust_score: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          category: string
+          classified_at?: string
+          classified_by_model: string
+          created_at?: string
+          domain: string
+          rationale: string
+          trust_score: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          category?: string
+          classified_at?: string
+          classified_by_model?: string
+          created_at?: string
+          domain?: string
+          rationale?: string
+          trust_score?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       subjects: {
         Row: {
           created_at: string
