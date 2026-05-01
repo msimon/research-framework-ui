@@ -445,7 +445,7 @@ Deferred for MVP. Will return via Miniflare-backed integration tests post-MVP.
 
 ## Review Checklist
 
-Single source of truth for `/review-code-change`. Each bullet is a rule to apply to a local diff. Explanations for each live in the relevant section above.
+Single source of truth for `/lint-code-change` and `/lint-workspace-change`. Each bullet is a rule to apply to a local diff. Explanations for each live in the relevant section above.
 
 ### Architecture
 

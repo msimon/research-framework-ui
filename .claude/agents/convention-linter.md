@@ -1,6 +1,6 @@
 ---
-name: code-reviewer
-description: Reviews a list of changed files against the project's Review Checklist (DEVELOPMENT.md). The caller provides a `Diff base:` line and a `Changed files:` list in the user message; this agent runs mechanical greps and judgment-call rules and returns a numbered findings report. Used by the `/review-code-change` and `/review-workspace-change` skills.
+name: convention-linter
+description: Lints a list of changed files against the project's Review Checklist (DEVELOPMENT.md) — architecture invariants, naming/file conventions, and a few security-adjacent rules. Not a logic-bug review. The caller provides a `Diff base:` line and a `Changed files:` list in the user message; this agent runs mechanical greps and judgment-call rules and returns a numbered findings report. Used by the `/lint-code-change` and `/lint-workspace-change` skills.
 model: opus
 color: blue
 tools: ["Bash", "Read", "Grep", "Glob"]
