@@ -39,6 +39,10 @@ export async function classifySources(
   const ordered = [...dedupedByUrl.values()];
   const userMessage = buildClassifierUserMessage(ordered);
 
+  console.info(
+    `[source-trust] classifying ${ordered.length} url(s):\n${ordered.map((e, i) => `  ${i + 1}. ${e.url} — ${e.title ?? '(no title)'}`).join('\n')}`,
+  );
+
   const result = await generateText({
     model: anthropicClassifierModel(),
     output: Output.object({ schema: sourceTrustBatchSchema }),
@@ -47,9 +51,23 @@ export async function classifySources(
     providerOptions: { anthropic: anthropicClassifierProviderOptions },
   });
 
+  console.info(
+    `[source-trust] classifier returned ${result.output.classifications.length} row(s):\n${JSON.stringify(result.output.classifications, null, 2)}`,
+  );
+
   const byUrl = new Map<string, SourceTrustClassification>();
+  const hallucinatedUrls: string[] = [];
   for (const c of result.output.classifications) {
-    if (dedupedByUrl.has(c.url)) byUrl.set(c.url, c);
+    if (dedupedByUrl.has(c.url)) {
+      byUrl.set(c.url, c);
+    } else {
+      hallucinatedUrls.push(c.url);
+    }
+  }
+  if (hallucinatedUrls.length > 0) {
+    console.warn(
+      `[source-trust] classifier returned ${hallucinatedUrls.length} url(s) not in the input batch:\n${hallucinatedUrls.map((u) => `  - ${u}`).join('\n')}`,
+    );
   }
   if (byUrl.size === 0) {
     console.warn(`[source-trust] classifier returned no usable rows for ${ordered.length} url(s)`);
@@ -57,11 +75,19 @@ export async function classifySources(
   }
 
   const rows: SourceTrustClassificationRow[] = [];
+  const droppedNoClassification: string[] = [];
+  const droppedBadDomain: string[] = [];
   for (const entry of ordered) {
     const c = byUrl.get(entry.url);
-    if (!c) continue;
+    if (!c) {
+      droppedNoClassification.push(entry.url);
+      continue;
+    }
     const domain = extractDomain(entry.url);
-    if (!domain) continue;
+    if (!domain) {
+      droppedBadDomain.push(entry.url);
+      continue;
+    }
     rows.push({
       url: entry.url,
       domain,
@@ -71,6 +97,21 @@ export async function classifySources(
       classified_by_model: serverConfig.llm.classifierModel,
     });
   }
+
+  if (droppedNoClassification.length > 0) {
+    console.warn(
+      `[source-trust] ${droppedNoClassification.length} input url(s) not classified by the model:\n${droppedNoClassification.map((u) => `  - ${u}`).join('\n')}`,
+    );
+  }
+  if (droppedBadDomain.length > 0) {
+    console.warn(
+      `[source-trust] ${droppedBadDomain.length} url(s) dropped due to unparseable host:\n${droppedBadDomain.map((u) => `  - ${u}`).join('\n')}`,
+    );
+  }
+  console.info(
+    `[source-trust] kept ${rows.length}/${ordered.length} classifications (dropped: no-class=${droppedNoClassification.length}, bad-domain=${droppedBadDomain.length}, hallucinated=${hallucinatedUrls.length})`,
+  );
+
   return rows;
 }
 
