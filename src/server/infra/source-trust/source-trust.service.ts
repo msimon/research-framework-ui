@@ -67,7 +67,7 @@ export async function classifySources(
       domain,
       category: c.category,
       rationale: c.rationale,
-      trust_score: c.trust_score,
+      trust_score: clampScore(c.trust_score),
       classified_by_model: serverConfig.llm.classifierModel,
     });
   }
@@ -85,6 +85,12 @@ function buildClassifierUserMessage(inputs: ReadonlyArray<SourceTrustInput>): st
     '',
     ...lines,
   ].join('\n');
+}
+
+function clampScore(score: number): number {
+  if (score < 0) return 0;
+  if (score > 5) return 5;
+  return score;
 }
 
 function extractDomain(url: string): string | null {
