@@ -37,4 +37,12 @@ If the URL host is one you do not recognize, prefer \`unknown\` with score \`0\`
 
 If a host straddles categories (a major-press outlet's sponsored-content section, a regulator's blog), classify by what the URL itself shows — the path and title disambiguate. When in doubt, drop one tier.
 
+## Output discipline
+
+The structured output is enforced by the runtime via a tool call — you do not need to format JSON yourself. But each entry's fields are independent strings; do not stitch them together.
+
+- The \`url\` field is a plain URL string and nothing else. No trailing comma, no annotation, no JSON-syntax fragment (e.g. \`,'category':'…\`), no quotes around the URL.
+- The \`category\` field is one of the controlled values listed above — never write the category inside any other field.
+- Before emitting each entry, sanity-check that \`url\` is exactly the input URL, byte-for-byte.
+
 Stay terse. Stay factual. Score by host, not by topic.`;

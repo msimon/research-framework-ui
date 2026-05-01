@@ -5,7 +5,6 @@ import { SOURCE_TRUST_SYSTEM_PROMPT } from '@/prompts/source-trust/source-trust.
 import {
   type SourceTrustClassification,
   sourceTrustBatchSchema,
-  sourceTrustCategorySchema,
 } from '@/prompts/source-trust/source-trust.schema';
 import {
   anthropicClassifierModel,
@@ -58,32 +57,12 @@ export async function classifySources(
 
   const byUrl = new Map<string, SourceTrustClassification>();
   const hallucinatedUrls: string[] = [];
-  let recoveredFromPollution = 0;
   for (const c of result.output.classifications) {
-    const { url: cleanUrl, recoveredCategory } = cleanClassifierUrl(c.url);
-    if (!dedupedByUrl.has(cleanUrl)) {
+    if (dedupedByUrl.has(c.url)) {
+      byUrl.set(c.url, c);
+    } else {
       hallucinatedUrls.push(c.url);
-      continue;
     }
-    let category = c.category;
-    if (cleanUrl !== c.url) {
-      recoveredFromPollution += 1;
-      // The model leaked JSON syntax into the URL field — its own intended
-      // category is in the suffix, while the `category` field fell back to
-      // "unknown". Recover the suffix category when it parses cleanly.
-      if (category === 'unknown' && recoveredCategory) {
-        const parsed = sourceTrustCategorySchema.safeParse(recoveredCategory);
-        if (parsed.success && parsed.data !== 'unknown') {
-          category = parsed.data;
-        }
-      }
-    }
-    byUrl.set(cleanUrl, { ...c, url: cleanUrl, category });
-  }
-  if (recoveredFromPollution > 0) {
-    console.warn(
-      `[source-trust] recovered ${recoveredFromPollution} url(s) where the model leaked JSON syntax into the url field`,
-    );
   }
   if (hallucinatedUrls.length > 0) {
     console.warn(
@@ -147,21 +126,6 @@ function buildClassifierUserMessage(inputs: ReadonlyArray<SourceTrustInput>): st
     '',
     ...lines,
   ].join('\n');
-}
-
-// The classifier occasionally emits the URL field with a JSON-syntax
-// fragment glued onto the end, e.g. `https://example.com/foo/','category':'industry-blog`.
-// The accompanying `category` field then falls back to "unknown". Strip
-// the suffix so the URL matches the input batch, and surface the leaked
-// category for recovery.
-const POLLUTED_URL_SUFFIX_RE = /^(.+?)['"]?,\s*['"]category['"]\s*:\s*['"]([^'"]+)['"]?$/;
-
-function cleanClassifierUrl(rawUrl: string): { url: string; recoveredCategory: string | null } {
-  const match = POLLUTED_URL_SUFFIX_RE.exec(rawUrl);
-  if (match?.[1]) {
-    return { url: match[1], recoveredCategory: match[2] ?? null };
-  }
-  return { url: rawUrl, recoveredCategory: null };
 }
 
 function clampScore(score: number): number {

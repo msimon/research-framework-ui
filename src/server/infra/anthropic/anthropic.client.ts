@@ -22,8 +22,10 @@ export const anthropicProviderOptions = {
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;
 
-// Haiku doesn't support `thinking: { type: 'adaptive' }` (that mode is
-// Opus/Sonnet-only) and source-trust classification is a host-name lookup
-// that doesn't benefit from extended thinking anyway, so the classifier
-// runs with no provider options.
-export const anthropicClassifierProviderOptions = {} satisfies AnthropicProviderOptions;
+// Haiku doesn't support adaptive thinking, but a modest fixed budget lets
+// the classifier sanity-check its own structured output before it lands —
+// it has been observed leaking JSON-syntax fragments into the `url` field,
+// and having room to think gives it a chance to catch that mid-emission.
+export const anthropicClassifierProviderOptions = {
+  thinking: { type: 'enabled', budgetTokens: 4096 },
+} satisfies AnthropicProviderOptions;
