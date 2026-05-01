@@ -8,7 +8,7 @@ import {
 } from '@/prompts/source-trust/source-trust.schema';
 import {
   anthropicClassifierModel,
-  anthropicProviderOptions,
+  anthropicClassifierProviderOptions,
 } from '@/server/infra/anthropic/anthropic.client';
 import { serverConfig } from '@/shared/config/server.config';
 
@@ -44,7 +44,7 @@ export async function classifySources(
     output: Output.object({ schema: sourceTrustBatchSchema }),
     system: SOURCE_TRUST_SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: userMessage }],
-    providerOptions: { anthropic: anthropicProviderOptions },
+    providerOptions: { anthropic: anthropicClassifierProviderOptions },
   });
 
   const byUrl = new Map<string, SourceTrustClassification>();

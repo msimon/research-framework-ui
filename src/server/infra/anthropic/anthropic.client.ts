@@ -21,3 +21,9 @@ export const anthropicProviderOptions = {
   thinking: { type: 'adaptive', display: 'omitted' },
   effort: serverConfig.llm.effort,
 } satisfies AnthropicProviderOptions;
+
+// Haiku doesn't support `thinking: { type: 'adaptive' }` (that mode is
+// Opus/Sonnet-only) and source-trust classification is a host-name lookup
+// that doesn't benefit from extended thinking anyway, so the classifier
+// runs with no provider options.
+export const anthropicClassifierProviderOptions = {} satisfies AnthropicProviderOptions;
