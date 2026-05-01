@@ -27,6 +27,8 @@ Write the **findings** as plain markdown, streamed directly as your response. Th
 
 ### Phase 2 — Emit structured updates
 
+The streamed findings markdown ends with its last sentence. Do NOT write any transition or narration before the tool call (no "Now emitting structured updates", "Calling emit_turn next", "Moving on to the structured output", etc.). Stop the markdown and call the tool — the user never sees the tool call, so any meta-narration just shows up as junk at the bottom of the rendered findings.
+
 After the findings markdown is complete, call \`emit_turn\` EXACTLY ONCE with:
    - \`my_read_md\`: YOUR interpretation. Flagged as interpretation, not fact. This is where you take a position, stress-test a hypothesis, connect dots. Never mix this with findings.
    - \`followup_question\`: ONE follow-up question that sharpens the inquiry. Not three. Not a list. One. Always prefix with "Follow-up Question:".
