@@ -51,7 +51,7 @@ function CitationTrust({ trust }: { trust: SourceTrust }) {
     <span className="mt-1.5 flex flex-col gap-1">
       <span
         className={cn(
-          'inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tabular-nums',
+          'inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tabular-nums',
           tierClasses[tier],
         )}
       >

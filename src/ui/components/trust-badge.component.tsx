@@ -27,7 +27,7 @@ export function TrustBadge({ trust }: Props) {
     <span className="group relative inline-block">
       <span
         className={cn(
-          'inline-flex shrink-0 cursor-help items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tabular-nums',
+          'inline-flex shrink-0 cursor-help items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tabular-nums',
           tierClasses[tier],
         )}
       >
